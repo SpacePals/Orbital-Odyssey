@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Odyssey — Spacecraft Builder & Flight Simulator</title>
+  <meta name="description" content="Build your custom spacecraft, pass the rocket launch gate, survive deep-space emergencies, and explore the solar system!">
+  <meta name="theme-color" content="#060a14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23060a14'/%3E%3Cellipse cx='16' cy='16' rx='13' ry='6' fill='none' stroke='%2322d3ee' stroke-width='2' transform='rotate(-25 16 16)'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23ff5a36'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- shared SVG paint servers -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="atmo"><stop offset="68%" stop-color="#00e5ff" stop-opacity="0"/><stop offset="82%" stop-color="#00e5ff" stop-opacity=".3"/><stop offset="91%" stop-color="#29b6f6" stop-opacity=".75"/><stop offset="96%" stop-color="#0288d1" stop-opacity=".4"/><stop offset="100%" stop-color="#01579b" stop-opacity="0"/></radialGradient>
+      <radialGradient id="atmoE"><stop offset="80%" stop-color="#cfe6ff" stop-opacity="0"/><stop offset="92%" stop-color="#cfe6ff" stop-opacity=".25"/><stop offset="100%" stop-color="#cfe6ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="sphereShade" cx="28%" cy="30%" r="88%"><stop offset="0%" stop-color="#fff" stop-opacity=".25"/><stop offset="38%" stop-color="#fff" stop-opacity="0"/><stop offset="68%" stop-color="#000814" stop-opacity=".45"/><stop offset="88%" stop-color="#000511" stop-opacity=".88"/><stop offset="100%" stop-color="#000208" stop-opacity=".96"/></radialGradient>
+      <radialGradient id="sphereShadeE" cx="30%" cy="35%" r="85%"><stop offset="0%" stop-color="#fff" stop-opacity=".22"/><stop offset="45%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#050a18" stop-opacity=".82"/></radialGradient>
+      <radialGradient id="sphereShadeJ" cx="30%" cy="35%" r="85%"><stop offset="0%" stop-color="#fff" stop-opacity=".12"/><stop offset="50%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".8"/></radialGradient>
+      <linearGradient id="rk_white" x1="0" x2="1"><stop offset="0" stop-color="#8d98ab"/><stop offset=".35" stop-color="#f4f6fa"/><stop offset=".7" stop-color="#c9d1de"/><stop offset="1" stop-color="#6b7589"/></linearGradient>
+      <linearGradient id="rk_orange" x1="0" x2="1"><stop offset="0" stop-color="#8a3d12"/><stop offset=".35" stop-color="#ff9a52"/><stop offset=".7" stop-color="#d9702b"/><stop offset="1" stop-color="#7a3410"/></linearGradient>
+      <radialGradient id="flameGrad" cx="50%" cy="0%" r="100%"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="#ffd27a"/><stop offset=".65" stop-color="#ff7a2e"/><stop offset="1" stop-color="#ff3d1a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff6d0" stop-opacity=".95"/><stop offset=".25" stop-color="#ffd27a" stop-opacity=".4"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="stageGlow" cx="50%" cy="48%" r="60%"><stop offset="0" stop-color="#16315c" stop-opacity=".75"/><stop offset="1" stop-color="#060a14" stop-opacity="0"/></radialGradient>
+      <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+  </svg>
+
+  <header id="topbar">
+    <div class="brand" id="brand" title="Orbital Odyssey - Return to Main Menu">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <ellipse cx="20" cy="20" rx="17" ry="7" fill="none" stroke="#22d3ee" stroke-width="2" transform="rotate(-24 20 20)"/>
+        <circle cx="20" cy="20" r="8.5" fill="#0b1426" stroke="#ff5a36" stroke-width="3"/>
+        <circle cx="33.5" cy="12.6" r="2.6" fill="#ff5a36"/>
+      </svg>
+      <div class="brand-text"><b>ORBITAL ODYSSEY</b><span>Spacecraft Simulator</span></div>
+    </div>
+    <ol id="gameStages" class="stages-nav" aria-label="Game progress">
+      <li data-n="1"><b>1. MENU</b><i>Home</i></li>
+      <li data-n="2"><b>2. MISSION</b><i>Select</i></li>
+      <li data-n="3"><b>3. WORKSHOP</b><i>Build</i></li>
+      <li data-n="4"><b>4. LAUNCH</b><i>Liftoff</i></li>
+      <li data-n="5"><b>5. FLIGHT</b><i>Hazards</i></li>
+      <li data-n="6"><b>6. REPORT</b><i>Debrief</i></li>
+    </ol>
+    <div id="phaseLabel" class="mono"></div>
+    <div class="top-actions">
+      <button class="btn ghost small" id="btnTopSettings" title="Game Settings"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</button>
+      <button class="btn ghost small" id="btnTutorial" title="View interactive tutorial"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> How to Play</button>
+      <button class="btn ghost small" id="btnMute" aria-pressed="false"><span id="muteIcon"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span> <span id="muteText">Sound ON</span></button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- ================= 1. MAIN MENU SCREEN ================= -->
+    <section id="screen-menu" class="screen active" aria-label="Main Menu">
+      <div class="title-art"><svg id="menuArt" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></div>
+      <div class="menu-hero-wrap">
+        <h1 class="menu-game-title">ORBITAL<br><span>ODYSSEY</span></h1>
+        <p class="menu-tagline">Design your custom space probe. Strap into a multi-stage rocket. Pilot through deep space hazards and unlock real NASA mission matches.</p>
+
+        <div class="menu-buttons-grid">
+          <button class="btn primary big menu-btn pulse-btn" id="btnMenuPlay">
+            <svg class="btn-svg" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg> PLAY GAME <small>Choose your mission &amp; fly</small>
+          </button>
+          <button class="btn ghost big menu-btn" id="btnMenuSettings">
+            <svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> SETTINGS <small>Audio &amp; UI preferences</small>
+          </button>
+          <button class="btn ghost big menu-btn" id="btnMenuTutorial">
+            <svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> HOW TO PLAY <small>Quick game guide</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 2. LEVEL SELECTION SCREEN ================= -->
+    <section id="screen-level" class="screen" aria-label="Level Select">
+      <div class="title-art"><svg id="levelArt" viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg></div>
+      <div class="title-inner">
+        <div class="level-head">
+          <button class="btn ghost small" id="btnBackToMenu">&larr; Back to Main Menu</button>
+          <div class="section-label mono">SELECT YOUR MISSION DESTINATION</div>
+          <h2>Where do you want to explore?</h2>
+          <p class="dim">Pick a target destination. Each mission has unique budget, weight limits, sunlight conditions, and radiation hazards.</p>
+        </div>
+
+        <div id="scnCards" class="scn-cards"></div>
+        <div id="briefing" class="briefing"></div>
+
+        <div class="cta-row">
+          <button class="btn primary big pulse-btn" id="btnStartLevel">
+            <svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> ENTER WORKSHOP &rarr; <small>Start Designing Your Ship</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 3. SPACECRAFT WORKSHOP ================= -->
+    <section id="screen-config" class="screen" aria-label="Spacecraft Workshop">
+      <!-- HUD Vitals -->
+      <div id="hud" aria-live="off"></div>
+
+      <!-- Workshop Grid -->
+      <div id="cfgGrid">
+        <aside id="leftPanel" class="panel" aria-label="Parts workshop">
+          <div class="workshop-tools-bar">
+            <div id="tabs" role="tablist" aria-label="Subsystems"></div>
+            <!-- Simplified UI toggle -->
+            <div class="ui-mode-toggle" title="Switch between simplified view and detailed specifications">
+              <button class="ui-mode-btn active" id="btnModeSimple">Simple View</button>
+              <button class="ui-mode-btn" id="btnModeDetailed">Detailed Specs</button>
+            </div>
+          </div>
+          <div id="tabBlurb" class="blurb"></div>
+          <div id="cards" class="cards"></div>
+        </aside>
+
+        <!-- 3D Center Stage -->
+        <div id="stageWrap" class="stage-wrap">
+          <svg id="stage" viewBox="0 0 760 540" role="img" aria-label="Rotating 2.5D spacecraft in workshop">
+            <rect width="760" height="540" fill="#070d1b"/>
+            <rect width="760" height="540" fill="url(#stageGlow)"/>
+            <g id="stageBg"></g>
+            <ellipse id="shipShadow" cx="380" cy="420" rx="170" ry="34" fill="#000" opacity=".5"/>
+            <g id="shipG" transform="translate(380,262)"><g id="shipLayer"></g></g>
+            <g id="fxLayer"></g>
+            <g class="brackets" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".55">
+              <path d="M16 44V16h28M744 44V16h-28M16 496v28h28M744 496v28h-28"/>
+            </g>
+          </svg>
+          <div class="stage-tag mono tl">SPACECRAFT WORKSHOP &bull; <span id="stageScn"></span></div>
+          <div class="stage-tag mono tr"><span class="dot"></span> ASSEMBLY ACTIVE</div>
+          <div class="stage-tag mono bl">Tip: Drag to rotate ship &bull; Hover card to preview &bull; Click to equip</div>
+          <div class="stage-ctl">
+            <label class="chk"><input type="checkbox" id="chkLabels" checked> Labels</label>
+            <label class="chk"><input type="checkbox" id="chkSpin" checked> Auto-rotate</label>
+          </div>
+          <div id="boosterTag" class="booster-tag mono"></div>
+        </div>
+
+        <!-- Right Flight Director / Checklist Panel -->
+        <aside id="rightPanel" class="panel" aria-label="Flight director console">
+          <div class="panel-title mono">FLIGHT READINESS CHECKLIST</div>
+          <div id="segments" class="segments"></div>
+          
+          <div class="panel-subtitle mono">ENGINEERING ALERTS</div>
+          <div id="warnings" class="warnings" aria-live="polite"></div>
+
+          <div class="panel-subtitle mono">INSTALLED COMPONENTS <span id="bomCount"></span></div>
+          <div id="bom" class="bom"></div>
+
+          <div class="launch-box">
+            <button class="btn launch" id="btnLaunch"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> LAUNCH MISSION</button>
+            <button class="btn ghost small" id="btnBackToLevel">&larr; Back to Mission Select</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= 4. LAUNCH SCREEN ================= -->
+    <section id="screen-launch" class="screen" aria-label="Launch sequence">
+      <div id="launchWrap">
+        <div class="launch-stage">
+          <svg id="launchSvg" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid slice" aria-label="Rocket ascent animation"></svg>
+          <div id="launchCall" class="call mono"></div>
+          <div class="launch-mission-bar mono" id="launchMissionBar">
+            <span class="badge-dot" style="background:var(--cyan)"></span>
+            <span>HOLD GREEN CORRIDOR &bull; SEPARATE BOOSTERS AT BURNOUT!</span>
+          </div>
+          <div class="arcade-score-badge mono" id="launchScoreBadge">
+            <span>FLIGHT SCORE: <b id="launchScoreVal">0</b></span>
+            <span class="combo-pill" id="launchComboPill">1.0x VECTOR</span>
+          </div>
+          <div class="launch-arcade-bar" id="launchArcadeBar">
+            <button class="arcade-steer-btn" id="btnSteerLeft" title="Steer Left (A / Left Arrow)"><svg class="btn-svg" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> STEER [A]</button>
+            <div class="corridor-gauge" title="Keep the rocket in the green trajectory corridor">
+              <span class="corridor-lbl mono">FLIGHT VECTOR</span>
+              <div class="corridor-track">
+                <div class="corridor-zone"></div>
+                <div class="corridor-pointer" id="corridorPointer"></div>
+              </div>
+            </div>
+            <button class="arcade-steer-btn" id="btnSteerRight" title="Steer Right (D / Right Arrow)">STEER [D] <svg class="btn-svg" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+            <button class="arcade-stage-btn pulse-crisis" id="btnManualStage" style="display:none" title="Separate Stage (SPACE)"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> &#128640; SEPARATE BOOSTERS NOW! [SPACE]</button>
+          </div>
+        </div>
+        <aside class="panel launch-hud">
+          <div class="panel-title mono">LAUNCH CONTROL &bull; COUNTDOWN</div>
+          <div class="clock mono" id="launchClock">T-00:03</div>
+          <div class="tm-grid mono">
+            <div><span>ALTITUDE</span><b id="tmAlt">0</b><i>km</i></div>
+            <div><span>SPEED</span><b id="tmVel">0.00</b><i>km/s</i></div>
+            <div><span>STAGE</span><b id="tmStage">PAD</b><i></i></div>
+            <div><span>SPEED GAINED</span><b id="tmDv">0.00</b><i>km/s</i></div>
+          </div>
+          <!-- Launch Stress / Stability Card -->
+          <div class="launch-stress-card" id="launchStressCard">
+            <div class="stress-head mono">
+              <span>FLIGHT STABILITY</span>
+              <b id="stressVal" style="color:var(--cyan)">100% NOMINAL</b>
+            </div>
+            <div class="stress-track">
+              <div id="stressFill" class="stress-fill good" style="width:100%"></div>
+            </div>
+            <div class="stress-tip mono" id="stressTip">STEER TO STAY IN GREEN CORRIDOR</div>
+          </div>
+          <div class="panel-title mono">PRE-FLIGHT GO / NO-GO POLL</div>
+          <ul id="gates" class="gates"></ul>
+          <div class="panel-title mono">ROCKET SPEED &amp; FUEL (DELTA-V)</div>
+          <div class="dvbar"><div id="dvFill"></div><div id="dvReq"></div></div>
+          <div class="mono dvtxt" id="dvText"></div>
+        </aside>
+      </div>
+      <div id="failModal" class="modal" hidden></div>
+    </section>
+
+    <!-- ================= 5. LIVE OPERATIONS ================= -->
+    <section id="screen-ops" class="screen" aria-label="Live deep-space operations">
+      <div id="opsGrid">
+        <div id="opsStage" class="stage-wrap ops-stage">
+          <div class="ops-viewport-wrap" id="opsViewportWrap">
+            <svg id="opsSvg" viewBox="0 0 760 470" aria-label="Orbital view"></svg>
+            <div class="ops-clock mono" id="opsClock">MET 00:00</div>
+            <div class="ops-score-pill mono" id="opsScorePill">SCORE: <b id="gameScoreVal">0</b> &bull; PHOTOS: <b id="photoCount">0/3</b></div>
+            <button class="btn ghost small ops-guide-trigger-btn" id="btnOpsGuide" title="Open Stage 5 Flight Guide"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Flight Guide</button>
+            <div id="crisisBanner" class="crisis-banner" hidden></div>
+            <div class="ops-orbit-tag mono" id="opsOrbitTag"></div>
+            <div id="opsFlash" class="flash"></div>
+
+            <!-- Interactive Science Target Reticle & Shutter Button -->
+            <div id="scienceTarget" class="science-target" style="display:none">
+              <div class="target-crosshair"></div>
+              <div class="target-info">
+                <span class="target-badge mono">DISCOVERY IN RANGE</span>
+                <b class="target-title" id="targetTitle">AURORA BOREALIS</b>
+                <button class="btn primary small snap-btn pulse-btn" id="btnSnapPhoto">
+                  <svg class="btn-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> SNAP PHOTO [SPACE]
+                </button>
+              </div>
+            </div>
+            <div id="shutterFlash" class="shutter-flash"></div>
+            <div id="discoveryCard" class="discovery-card" hidden></div>
+          </div>
+
+          <!-- Tactile Spacecraft Flight Deck Console -->
+          <div class="flight-deck-console" id="flightDeckConsole">
+            <!-- Station 1: Propulsion & Thruster Controls -->
+            <div class="console-box rcs-station">
+              <div class="console-head mono">
+                <span class="mod-led active"></span>
+                <span>RCS PROPULSION</span>
+                <b id="rcsFuelBadge" class="fuel-badge">READY</b>
+              </div>
+              <div class="rcs-actions-deck">
+                <button class="rcs-fire-btn pulse-crisis" id="btnConsoleRcsBurst" title="Fire RCS Thruster Burst (SPACE)">
+                  <svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <div class="btn-label-group">
+                    <b>FIRE RCS BURST [SPACE]</b>
+                    <small>-2.8s IN SHADOW &bull; +150 PTS</small>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Station 2: Power Matrix -->
+            <div class="console-box power-station">
+              <div class="console-head mono">
+                <span class="mod-led active" id="pwrDeckLed"></span>
+                <span>POWER MATRIX</span>
+                <b id="consoleNetVal" class="mono" style="color:var(--green)">+25 W</b>
+              </div>
+              <div class="pwr-switches-deck">
+                <button class="console-sw on" id="swDeckCam" data-deck-act="instCam" title="Toggle Cameras">
+                  <span class="sw-bulb"></span>
+                  <span class="mono">CAMERAS</span>
+                </button>
+                <button class="console-sw on" id="swDeckSci" data-deck-act="instSci" title="Toggle Sensors">
+                  <span class="sw-bulb"></span>
+                  <span class="mono">SENSORS</span>
+                </button>
+                <button class="console-sw on" id="swDeckTx" data-deck-act="txBoost" title="Toggle Radio Boost">
+                  <span class="sw-bulb"></span>
+                  <span class="mono">TX BOOST</span>
+                </button>
+                <button class="console-sw" id="swDeckEco" data-deck-act="ecoSleep" title="Toggle Power Saving Sleep">
+                  <span class="sw-bulb amber"></span>
+                  <span class="mono">ECO SLEEP</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Station 3: Tactical Emergency Module -->
+            <div class="console-box emergency-station" id="consoleEmergencyStation">
+              <div id="deckEmergencyContent"></div>
+            </div>
+          </div>
+        </div>
+        <aside id="opsPanel" class="panel ops-panel" aria-label="Spacecraft control panel"></aside>
+      </div>
+    </section>
+
+    <!-- ================= 6. RESULTS & DEBRIEF ================= -->
+    <section id="screen-debrief" class="screen" aria-label="Mission evaluation report">
+      <div id="debrief" class="debrief"></div>
+    </section>
+  </main>
+
+  <!-- ================= SETTINGS MODAL ================= -->
+  <div id="settingsModal" class="modal settings-modal" hidden>
+    <div class="modal-card settings-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-head">
+        <span class="mono">PREFERENCES</span>
+        <h2 id="settingsTitle">Game Settings</h2>
+        <button class="tut-close-btn" id="btnSettingsX" aria-label="Close Settings">&times;</button>
+      </div>
+      <div class="modal-body settings-body">
+        <div class="setting-row">
+          <div>
+            <b>Game Audio &amp; Sound FX</b>
+            <p class="dim">Adjust synthesizer sound effects, rocket rumbles, and flight alarms.</p>
+          </div>
+          <div class="volume-slider-box">
+            <button class="btn ghost small vol-mute-btn" id="btnVolMute" title="Mute/Unmute"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
+            <input type="range" id="volSlider" min="0" max="100" value="70" class="volume-slider" aria-label="Game Volume">
+            <span class="mono vol-val" id="volVal">70%</span>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <b>Interactive Tutorial</b>
+            <p class="dim">Step-by-step game guide explaining spacecraft assembly, launch checks, and space hazards.</p>
+          </div>
+          <div class="tut-setting-btns">
+            <button class="btn primary" id="btnSettingsPlayTut"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg> Play Tutorial Now</button>
+            <button class="btn ghost small" id="btnSettingsResetTut" title="Reset auto-display for first-time play">Reset Auto-Play</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn primary" id="btnSettingsClose">Save &amp; Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= INTERACTIVE TUTORIAL MODAL ================= -->
+  <div id="tutorialModal" class="modal tutorial-modal" hidden>
+    <div class="modal-card tut-card" role="dialog" aria-modal="true" aria-labelledby="tutTitle">
+      <div class="tut-head">
+        <div class="tut-step-badge mono" id="tutStepBadge">STEP 1 OF 6</div>
+        <button class="tut-close-btn" id="btnTutSkip" aria-label="Skip Tutorial">&times; Skip</button>
+      </div>
+      <div class="tut-body">
+        <div class="tut-icon-wrap" id="tutIcon"><svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></div>
+        <h2 id="tutTitle">Welcome, Flight Commander!</h2>
+        <p id="tutDesc">You are about to design and fly a real NASA-inspired spacecraft. Let's do a quick 6-step walkthrough to ensure your mission is a success!</p>
+        <div class="tut-visual" id="tutVisual"></div>
+      </div>
+      <div class="tut-foot">
+        <div class="tut-dots" id="tutDots"></div>
+        <div class="tut-actions">
+          <button class="btn ghost small" id="btnTutPrev" style="display:none">&larr; Back</button>
+          <button class="btn primary" id="btnTutNext">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STAGE 5 FLIGHT OPERATIONS GUIDE MODAL ================= -->
+  <div id="opsTutModal" class="modal tutorial-modal" hidden>
+    <div class="modal-card tut-card ops-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="opsTutTitle">
+      <div class="tut-head">
+        <div class="tut-step-badge mono">STAGE 5 &bull; SPACE FLIGHT GUIDE</div>
+        <button class="tut-close-btn" id="btnOpsTutSkip" aria-label="Close Guide">&times; Close</button>
+      </div>
+      <div class="tut-body ops-guide-body">
+        <div class="tut-icon-wrap"><svg class="btn-svg" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg></div>
+        <h2 id="opsTutTitle">Live Deep-Space Operations!</h2>
+        <p>Your probe is now orbiting in space. Cruise freely while systems are green, but respond quickly to <b>3 space emergencies</b>:</p>
+        <div class="ops-guide-grid">
+          <div class="ops-guide-card">
+            <div class="guide-num">1</div>
+            <div class="guide-content">
+              <div class="guide-card-head">
+                <b>Night Shadow (Eclipse)</b>
+                <span class="guide-badge-alert">Emergency 1</span>
+              </div>
+              <p>Solar panels produce 0 W in the dark. Keep your battery alive until sunrise:</p>
+              <div class="guide-steps-flow">
+                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Click "Sleep Instruments" (Auto-wakes at sunrise!)</span>
+              </div>
+            </div>
+          </div>
+          <div class="ops-guide-card active-guide-card">
+            <div class="guide-num">2</div>
+            <div class="guide-content">
+              <div class="guide-card-head">
+                <b>Cosmic Ray Glitch</b>
+                <span class="guide-badge-alert">Emergency 2</span>
+              </div>
+              <p>Radiation freezes flight computer. Two easy ways to restore it:</p>
+              <div class="guide-steps-flow">
+                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> <b>Method 1:</b> Tap 4 flashing RAM chips</span>
+                <span class="mono dim" style="font-size:10px;">- OR -</span>
+                <span class="guide-step-pill"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v6M9 2v4M15 2v4M6 8h12v4a6 6 0 0 1-6 6v4"/></svg> <b>Method 2:</b> Route Backup &rarr; Reboot</span>
+              </div>
+            </div>
+          </div>
+          <div class="ops-guide-card">
+            <div class="guide-num">3</div>
+            <div class="guide-content">
+              <div class="guide-card-head">
+                <b>Radio Window Closing</b>
+                <span class="guide-badge-alert">Emergency 3</span>
+              </div>
+              <p>Earth contact window is closing. Downlink stored telemetry:</p>
+              <div class="guide-steps-flow">
+                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V4"/><polyline points="13 8 17 4 21 8"/></svg> Click "Activate Boost" (+50% speed)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tut-foot">
+        <div class="mono dim" style="font-size:11.5px">Tip: Re-open anytime via the top-right button!</div>
+        <button class="btn primary big" id="btnOpsTutStart"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> Start Flight &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/iso.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/flow.js"></script>
+</body>
+</html>
