@@ -392,7 +392,6 @@
     OO.b = E.compute(OO.scn, OO.order);
     OO.disp = { mass: OO.b.mass, net: OO.b.net, rem: OO.b.budgetLeft, bw: OO.b.bw, data: OO.b.data };
     OO.order.forEach(function (id) { OO.prog[id] = 1; });
-    $('stageScn').textContent = D.SCENARIOS[OO.scn].name.toUpperCase();
     renderCards(); renderRight(); OO.show('config');
     OO.built = true;
   };
