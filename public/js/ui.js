@@ -15,7 +15,7 @@
     $: $, qa: qa, esc: esc, fmt: fmt, setCls: setCls,
     scn: 'leo', eq: {}, order: [], tab: 'science', prog: {}, hover: null, screen: 'menu',
     yaw: 0.7, spin: true, spinPause: 0, dragging: false, labels: true, t: 0, fx: [],
-    disp: null, b: null, loops: {}, built: false, lastWarnKey: '', lastWarnT: 0,
+    disp: null, b: null, loops: {}, built: false,
     tutStep: 0, simpleMode: simpleMode
   };
 
@@ -80,16 +80,43 @@
   }
 
   function syncSettings() {
-    var v = Math.round(S.getVolume() * 100);
+    var masterPct = Math.round(S.getMasterVolume ? S.getMasterVolume() * 100 : S.getVolume() * 100);
+    var musicPct = Math.round(S.getMusicVolume ? S.getMusicVolume() * 100 : 60);
+    var sfxPct = Math.round(S.getSfxVolume ? S.getSfxVolume() * 100 : 80);
     var muted = S.isMuted();
-    var slider = $('volSlider'), valSpan = $('volVal'), muteBtn = $('btnVolMute');
-    if (slider) slider.value = muted ? 0 : v;
-    if (valSpan) valSpan.textContent = (muted ? '0%' : v + '%');
+
+    // 1. Master Volume
+    var mSlider = $('volMasterSlider') || $('volSlider');
+    var mVal = $('volMasterVal');
+    var legacyVal = $('volVal');
+    if (mSlider) mSlider.value = muted ? 0 : masterPct;
+    if (mVal) mVal.textContent = muted ? '0%' : masterPct + '%';
+    if (legacyVal) legacyVal.textContent = muted ? '0%' : masterPct + '%';
+
+    var muteBtn = $('btnVolMute');
     if (muteBtn) {
       muteBtn.innerHTML = muted
         ? '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
         : '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
     }
+
+    // 2. Background Music Volume & Track info
+    var musicSlider = $('volMusicSlider');
+    var musicVal = $('volMusicVal');
+    if (musicSlider) musicSlider.value = muted ? 0 : musicPct;
+    if (musicVal) musicVal.textContent = muted ? '0%' : musicPct + '%';
+
+    var trackSpan = $('musicTrackTitle');
+    if (trackSpan && S.getMusicTrack) {
+      var tInfo = S.getMusicTrack();
+      trackSpan.textContent = 'Track ' + (tInfo.index + 1) + ': ' + tInfo.title;
+    }
+
+    // 3. Sound Effects (SFX) Volume
+    var sfxSlider = $('volSfxSlider');
+    var sfxVal = $('volSfxVal');
+    if (sfxSlider) sfxSlider.value = muted ? 0 : sfxPct;
+    if (sfxVal) sfxVal.textContent = muted ? '0%' : sfxPct + '%';
   }
 
   /* ---------------- menu & level art ---------------- */
@@ -145,7 +172,7 @@
     var sunSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
     var radSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
     var dishSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>';
-    var rkSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg>';
+    var rkSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>';
     $('briefing').innerHTML =
       '<div class="brief-overview brief-simple">' +
         '<div class="brief-mission-box">' +
@@ -177,7 +204,7 @@
     sci: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(90 12 12)"/></svg>',
     pow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
     tel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>',
-    lau: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg>'
+    lau: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>'
   };
 
   function buildHUD() {
@@ -206,15 +233,16 @@
 
     // Quick impact highlights for simple view
     var impactBadge = '<span class="chip s highlight">' + esc(c.impact || '+Science') + '</span>';
-    var costChip = chip('c', 'COST', '$' + st.cost + 'M');
+    var costChip = chip('c', 'COST', st.cost + 'M $');
     var weightChip = c.kind !== 'booster' ? chip('m', 'WEIGHT', st.mass + ' kg') : '';
 
+    var srcTxt = (c.source && c.source[OO.scn]) ? c.source[OO.scn] : '';
     var dyn = c.kind === 'booster' ? '<div class="dyn mono" data-dyn="' + c.id + '"></div>' : '';
 
     // Advanced technical chips
     var fullChips = [];
     if (c.kind !== 'booster') fullChips.push(chip('m', 'WEIGHT', st.mass + ' kg'));
-    fullChips.push(chip('c', 'COST', '$' + st.cost + 'M'));
+    fullChips.push(chip('c', 'COST', st.cost + 'M $'));
     if (c.kind === 'instrument') { fullChips.push(chip('p', 'POWER DRAW', '\u2212' + st.draw + ' W')); fullChips.push(chip('d', 'DATA GEN', st.data + ' kbps')); fullChips.push(chip('s', 'SCIENCE', '+' + st.sci + ' pts')); }
     if (c.kind === 'solar') { fullChips.push(chip('g', 'EARTH SUN', fmt(st.gen) + ' W')); fullChips.push(chip('g strong', 'HERE', '+' + fmt(st.gen * sc.solar) + ' W')); }
     if (c.kind === 'rtg') fullChips.push(chip('g strong', '24/7 OUTPUT', '+' + st.gen + ' W continuous'));
@@ -237,7 +265,7 @@
         '<p class="tagline">' + esc(c.tag) + '</p>' +
         '<p class="desc">' + esc(isSimple ? c.simpleDesc : c.desc) + '</p>' +
         dyn +
-        (!isSimple ? '<div class="src mono">' + esc(c.source[OO.scn]) + '</div>' : '') +
+        '<div class="src mono">' + esc(srcTxt) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -272,18 +300,13 @@
   function renderRight() {
     var b = OO.b, scn = b.scn;
     // warnings
-    var w = b.warnings, key = w.map(function (x) { return x.id; }).join('|');
+    var w = b.warnings;
     var html = w.map(function (x) {
       return '<div class="warn ' + x.level + '"><span class="wi">' + (x.level === 'crit' ? '!' : x.level === 'warn' ? '\u25B2' : 'i') + '</span><div><b class="mono">' + esc(x.title) + '</b><p>' + esc(x.text) + '</p></div></div>';
     }).join('');
     var hasCrit = w.some(function (x) { return x.level === 'crit'; });
     if (!w.length) html = '<div class="warn ok"><span class="wi">&check;</span><div><b class="mono">ALL CHECKS READY</b><p>Weight, power, radio, and rocket speed are ready for liftoff!</p></div></div>';
     $('warnings').innerHTML = html;
-    if (key !== OO.lastWarnKey) {
-      var now = performance.now();
-      if (hasCrit && now - OO.lastWarnT > 900 && OO.built) { S.warn(); OO.lastWarnT = now; }
-      OO.lastWarnKey = key;
-    }
     // checklist
     function seg(name, state, text) { return '<div class="seg ' + state + '"><b class="mono">' + name + '</b><span>' + esc(text) + '</span></div>'; }
     var ls = !b.booster ? ['miss', 'Select a rocket'] : (!b.launch.canReach ? ['bad', b.booster.code + ' cannot reach target'] : (b.mass > b.launch.cap ? ['bad', 'Too heavy for ' + b.booster.code] : ['ok', b.booster.code + ' \u2022 Ready']));
@@ -291,16 +314,16 @@
     var sp = b.gen <= 0 ? ['miss', 'No power source'] : (!b.eclipseCovered ? ['miss', 'Needs Battery for night'] : (powerOk ? ['ok', 'Net +' + fmt(b.net) + ' W Charging'] : ['bad', 'Net ' + fmt(b.net) + ' W Deficit']));
     var gs = !b.antenna ? ['miss', 'No antenna selected'] : (b.data > b.bw ? ['bad', 'Data overflow risk'] : ['ok', fmt(b.bw) + ' kbps Radio Link']);
     var us = !b.instruments.length ? ['miss', 'Install an instrument'] : ['ok', b.instruments.length + ' instrument' + (b.instruments.length > 1 ? 's' : '') + ' \u2022 ' + b.sci + ' pts'];
-    var svgRk = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg>';
+    var svgRk = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>';
     var svgPw = '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
     var svgRa = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M12 12h.01"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>';
     var svgSc = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M10 2v7.31L4.67 19.15A2 2 0 0 0 6.4 22h11.2a2 2 0 0 0 1.73-2.85L14 9.31V2h-4z"/><path d="M8.5 2h7M7 16h10"/></svg>';
     $('segments').innerHTML = seg(svgRk + ' ROCKET', ls[0], ls[1]) + seg(svgPw + ' POWER', sp[0], sp[1]) + seg(svgRa + ' RADIO', gs[0], gs[1]) + seg(svgSc + ' SCIENCE', us[0], us[1]);
     // BOM
-    var rows = '<div class="bom-row bus"><span>' + esc(scn.bus.name) + '</span><em class="mono">' + scn.bus.mass + ' kg</em><em class="mono">$' + scn.bus.cost + 'M</em><i></i></div>';
+    var rows = '<div class="bom-row bus"><span>' + esc(scn.bus.name) + '</span><em class="mono">' + scn.bus.mass + ' kg</em><em class="mono">' + scn.bus.cost + 'M $</em><i></i></div>';
     OO.order.forEach(function (id) {
       var c = E.comp(id), st = c.stats[OO.scn];
-      rows += '<div class="bom-row"><span><b class="mono">' + esc(c.code) + '</b> ' + esc(c.name) + '</span><em class="mono">' + (c.kind === 'booster' ? '\u2014' : st.mass + ' kg') + '</em><em class="mono">$' + st.cost + 'M</em><button class="x" data-remove="' + id + '" aria-label="Remove ' + esc(c.name) + '">&times;</button></div>';
+      rows += '<div class="bom-row"><span><b class="mono">' + esc(c.code) + '</b> ' + esc(c.name) + '</span><em class="mono">' + (c.kind === 'booster' ? '\u2014' : st.mass + ' kg') + '</em><em class="mono">' + st.cost + 'M $</em><button class="x" data-remove="' + id + '" aria-label="Remove ' + esc(c.name) + '">&times;</button></div>';
     });
     $('bom').innerHTML = rows;
     $('bomCount').textContent = '\u2022 ' + (OO.order.length + 1) + ' ITEMS';
@@ -446,6 +469,7 @@
       num: 1,
       icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>',
       title: 'Welcome to Spacecraft Workshop!',
+      callout: { sel: '#hud', label: 'Your 4 live gauges: Weight, Power, Budget, Radio' },
       desc: 'You are in command of designing an authentic NASA-inspired spacecraft. Your mission is to balance instruments, power, radio, and rocket fuel within your budget limits.',
       visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg> <b>Goal:</b> Build a ship that can achieve orbit, survive deep-space hazards, and return valuable science back to Earth!</div>',
       highlightTab: null
@@ -454,6 +478,7 @@
       num: 2,
       icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(90 12 12)"/></svg>',
       title: 'Step 1: Install Science Instruments',
+      callout: { sel: '#tabs .tab[data-tab="science"]', label: 'SCIENCE tab: pick your instruments' },
       desc: 'Every space probe needs a scientific purpose! In the <b>Science</b> tab, install cameras, scanners, or radar. More instruments generate more Science Points, but they also draw electricity and generate data!',
       visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg> <b>Tip:</b> Click any part card to equip it onto your 3D ship in real time. Click again to remove it.</div>',
       highlightTab: 'science'
@@ -462,6 +487,7 @@
       num: 3,
       icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
       title: 'Step 2: Generate & Store Power',
+      callout: { sel: '#tabs .tab[data-tab="power"]', label: 'POWER tab: solar panels + battery' },
       desc: 'Instruments need electricity to run! Switch to the <b>Power</b> tab to equip solar panels (or nuclear RTG power). <b>Crucial:</b> Always equip a <b>Battery</b> so your craft doesn\'t shut down when passing through the planet\'s dark shadow!',
       visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> <b>Night-Side Eclipse:</b> In the planet\'s shadow, solar power drops to 0 W. Only your battery keeps you alive!</div>',
       highlightTab: 'power'
@@ -470,38 +496,118 @@
       num: 4,
       icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>',
       title: 'Step 3: Radio Communications',
+      callout: { sel: '#tabs .tab[data-tab="telecom"]', label: 'RADIO tab: choose an antenna' },
       desc: 'How do your photos and discoveries get home? In the <b>Radio</b> tab, equip an antenna. A high-gain dish transmits data quickly. If your radio is too slow, your memory storage will fill up and lose data!',
       visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg> <b>Tip:</b> Equip the Ka-Band Booster to speed up your link by +40% and compress data by 25%.</div>',
       highlightTab: 'telecom'
     },
     {
       num: 5,
-      icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg>',
+      icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>',
       title: 'Step 4: Choose Your Rocket Booster',
+      callout: { sel: '#tabs .tab[data-tab="launch"]', label: 'ROCKET tab: pick a booster' },
       desc: 'Your spacecraft needs a powerful ride to space! Switch to the <b>Rocket</b> tab and select a booster strong enough to lift your craft\'s weight. If your ship is too heavy for the rocket, it will run out of fuel and crash back to Earth!',
-      visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> <b>Rocket Physics:</b> Heavier ships require more speed. Keep an eye on the weight limit!</div>',
+      visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> <b>Rocket Physics:</b> Heavier ships require more speed. Keep an eye on the weight limit!</div>',
       highlightTab: 'launch'
     },
     {
       num: 6,
+      icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>',
+      title: 'Step 5: Rocket Steering & Staging',
+      callout: { sel: '#btnLaunch', label: 'LAUNCH starts Stage 4: steer + stage!' },
+      desc: 'Stage 4 is a live rocket ascent! After you press <b>LAUNCH MISSION</b>, steer with <b>A / D</b> or the <b>&larr; / &rarr; Arrow keys</b> to keep your rocket inside the <b>green trajectory corridor</b>. When a booster burns out, press <b>SPACE</b> to separate the spent boosters so the rocket keeps climbing!',
+      visual: '<div class="tut-tip-box tut-steer-box">' +
+        '<div class="tut-keys-row"><span class="tut-keys"><kbd>A</kbd><kbd>D</kbd><em>or</em><kbd>&larr;</kbd><kbd>&rarr;</kbd></span><span class="tut-keys-txt"><b>Steer:</b> stay inside the green corridor to keep Flight Stability high.</span></div>' +
+        '<div class="tut-corridor-demo" aria-hidden="true"><div class="tut-corridor-zone"></div><div class="tut-corridor-ptr"></div></div>' +
+        '<div class="tut-keys-row"><span class="tut-keys"><kbd class="wide">SPACE</kbd></span><span class="tut-keys-txt"><b>Stage:</b> separate the spent boosters the moment they burn out.</span></div>' +
+        '</div>',
+      highlightTab: 'launch'
+    },
+    {
+      num: 7,
       icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>',
-      title: 'Step 5: Watch Vitals & Launch!',
+      title: 'Step 6: Watch Vitals & Launch!',
+      callout: { sel: '#segments', label: 'All checks green? Press LAUNCH MISSION!' },
       desc: 'Check the 4 HUD gauges at the top (Weight, Power, Budget, Radio). When your System Checklist is all green, press <b>LAUNCH MISSION</b> to fly your craft through live space emergencies!',
       visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> <b>You are ready, Commander!</b> Complete your design and launch when ready. Good luck!</div>',
       highlightTab: 'science'
     }
   ];
 
+  /* ---- floating spotlight / callout bubble that follows the active step ---- */
+  function ensureCallout() {
+    var el = $('tutCallout');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'tutCallout';
+      el.className = 'tut-callout-bubble';
+      el.hidden = true;
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<span class="tut-callout-label"></span>';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function hideCallout() {
+    var el = $('tutCallout'); if (el) el.hidden = true;
+    var m = $('tutorialModal');
+    if (m) m.classList.remove('tut-spot-mode', 'tut-side-left', 'tut-side-right');
+  }
+
+  function positionCallout(scroll) {
+    var m = $('tutorialModal');
+    var s = TUT_STEPS[OO.tutStep - 1];
+    if (!m || m.hidden || !s || !s.callout) { hideCallout(); return; }
+    var target = document.querySelector(s.callout.sel);
+    if (!target) { hideCallout(); return; }
+    if (scroll && target.scrollIntoView) { try { target.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* ignore */ } }
+    var r = target.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) { hideCallout(); return; } // target screen not visible (e.g. tutorial opened from menu)
+
+    var el = ensureCallout(), label = el.firstChild, pad = 6;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var bl = r.left - pad, bt = r.top - pad, bw = r.width + pad * 2, bh = r.height + pad * 2;
+    var pos = (vh - (bt + bh) >= 76) ? 'below' : (bt >= 76 ? 'above' : 'inside');
+
+    label.textContent = s.callout.label;
+    el.className = 'tut-callout-bubble pos-' + pos;
+    el.style.left = bl.toFixed(1) + 'px'; el.style.top = bt.toFixed(1) + 'px';
+    el.style.width = bw.toFixed(1) + 'px'; el.style.height = bh.toFixed(1) + 'px';
+    el.hidden = false;
+
+    // keep the label inside the viewport and point its arrow at the target
+    var lw = label.offsetWidth;
+    var abs = Math.max(10, Math.min(bl + (bw - lw) / 2, vw - lw - 10));
+    label.style.left = (abs - bl).toFixed(1) + 'px';
+    var ax = Math.max(16, Math.min(lw - 16, (bl + bw / 2) - abs));
+    label.style.setProperty('--ax', ax.toFixed(1) + 'px');
+
+    // dock the tutorial card on the opposite side so it never hides the highlight
+    var cx = r.left + r.width / 2;
+    m.classList.add('tut-spot-mode');
+    m.classList.toggle('tut-side-right', cx < vw * 0.4);
+    m.classList.toggle('tut-side-left', cx > vw * 0.6);
+  }
+
+  function reflowCallout() {
+    var m = $('tutorialModal');
+    if (m && !m.hidden) positionCallout(false);
+  }
+  window.addEventListener('resize', reflowCallout);
+  window.addEventListener('scroll', reflowCallout, true);
+
   OO.startTutorial = function (step) {
     OO.tutStep = step || 1;
-    OO.renderTutorialStep();
     var m = $('tutorialModal');
     if (m) m.hidden = false;
+    OO.renderTutorialStep();
   };
 
   OO.closeTutorial = function () {
     var m = $('tutorialModal');
     if (m) m.hidden = true;
+    hideCallout();
     try { localStorage.setItem('oo_tutorial_seen', '1'); } catch (e) { /* ignore */ }
     qa('.tab').forEach(function (t) { t.classList.remove('tut-pulse'); });
     var lb = $('btnLaunch'); if (lb) lb.classList.remove('tut-pulse');
@@ -541,6 +647,9 @@
     });
     var lb = $('btnLaunch');
     if (lb) lb.classList.toggle('tut-pulse', s.num === TUT_STEPS.length);
+
+    // floating spotlight bubble on the matching UI section
+    positionCallout(true);
   };
 
   /* ---------------- events ---------------- */
@@ -624,13 +733,56 @@
     });
 
     // Settings Modal events
-    var vSlider = $('volSlider');
-    if (vSlider) {
-      vSlider.addEventListener('input', function () {
+    if (S.onMusicChange) {
+      S.onMusicChange(function () {
+        syncSettings();
+      });
+    }
+
+    // 1. Master Volume Slider
+    var vMaster = $('volMasterSlider');
+    if (vMaster) {
+      vMaster.addEventListener('input', function () {
         var val = +this.value / 100;
-        S.setVolume(val);
+        if (S.setMasterVolume) S.setMasterVolume(val); else S.setVolume(val);
         syncSettings();
         syncMute();
+      });
+    }
+    var vSlider = $('volSlider');
+    if (vSlider && vSlider !== vMaster) {
+      vSlider.addEventListener('input', function () {
+        var val = +this.value / 100;
+        if (S.setMasterVolume) S.setMasterVolume(val); else S.setVolume(val);
+        syncSettings();
+        syncMute();
+      });
+    }
+
+    // 2. Background Music Slider & Skip Button
+    var vMusic = $('volMusicSlider');
+    if (vMusic) {
+      vMusic.addEventListener('input', function () {
+        var val = +this.value / 100;
+        if (S.setMusicVolume) S.setMusicVolume(val);
+        syncSettings();
+      });
+    }
+
+    // 3. Sound Effects (SFX) Slider & Test Button
+    var vSfx = $('volSfxSlider');
+    if (vSfx) {
+      vSfx.addEventListener('input', function () {
+        var val = +this.value / 100;
+        if (S.setSfxVolume) S.setSfxVolume(val);
+        syncSettings();
+      });
+    }
+
+    var bSfxTest = $('btnSfxTest');
+    if (bSfxTest) {
+      bSfxTest.addEventListener('click', function () {
+        S.click();
       });
     }
 
@@ -649,7 +801,7 @@
         S.click();
         openSettings(false);
         try { localStorage.removeItem('oo_tutorial_seen'); } catch (e) { /* ignore */ }
-        OO.openTutorial(1);
+        OO.startTutorial(1);
       });
     }
 
@@ -723,8 +875,8 @@
     $('btnLaunch').addEventListener('click', function () {
       S.init();
       var b = OO.b;
-      if (!b.booster) { S.error(); OO.toast('Please choose a rocket booster on the Rocket tab first!', 'warn'); OO.tab = 'launch'; renderCards(); return; }
-      if (!b.instruments.length) { S.error(); OO.toast('Install at least one science instrument on the Science tab!', 'warn'); OO.tab = 'science'; renderCards(); return; }
+      if (!b.booster) { OO.toast('Please choose a rocket booster on the Rocket tab first!', 'warn'); OO.tab = 'launch'; renderCards(); return; }
+      if (!b.instruments.length) { OO.toast('Install at least one science instrument on the Science tab!', 'warn'); OO.tab = 'science'; renderCards(); return; }
       S.click();
       if (root.OO_FLOW && root.OO_FLOW.startLaunch) {
         root.OO_FLOW.startLaunch();

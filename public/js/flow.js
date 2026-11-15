@@ -10,11 +10,18 @@
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function r1(v) { return Math.round(v * 10) / 10; }
   function commas(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function setText(id, v) { var el = $(id); if (el && el.textContent !== v) el.textContent = v; }
 
   var FLOW = root.OO_FLOW = {};
   var LK = null, OP = null;
   FLOW._getLK = function () { return LK; };
   FLOW._getOP = function () { return OP; };
+
+  /* Stage 5 tuning constants */
+  var TUNE_LO = 68, TUNE_HI = 86;      // DSN antenna lock sweet spot (%)
+  var DRIFT_ALERT = 70;                // thermal alert threshold (%)
+  var DRIFT_LOCK = 85;                 // photo capture blocked above this drift (%)
+  var DRIFT_RCS_CUT = 50;              // drift removed by one RCS burst (%)
 
   /* =====================================================================
    *  LAUNCH
@@ -180,6 +187,7 @@
     if (!LK) return;
     LK.t += dt;
     var t = LK.t, go = !LK.scrub, scn = LK.b.scn, R = ROCKET[LK.type], i;
+    var isEu = scn.id === 'europa';
     // call-outs
     while (LK.evIdx < LK.events.length && LK.events[LK.evIdx].t <= t) {
       var e = LK.events[LK.evIdx++];
@@ -225,27 +233,40 @@
     renderLaunchScene(Math.max(0, tsEff), ts, thrust);
 
     // Arcade Steering & Trajectory Corridor Game
-    // Guidance corridor curves away as the rocket pitches into its atmospheric gravity turn
-    var targetCorridorX = Math.sin(Math.max(0, tsEff) * 0.82) * 54 + 26;
+    // Guidance corridor curves away as the rocket pitches into its atmospheric gravity turn.
+    // Advanced (Europa) missions fly a faster-oscillating corridor, narrower width, and stronger crosswinds.
+    var corridorPhase = Math.max(0, tsEff);
+    var corridorWave = Math.sin(corridorPhase * (isEu ? 1.15 : 0.85));
+    var targetCorridorX = corridorWave * (isEu ? 58 : 54) + (isEu ? 20 : 26);
+    var zoneHalfWidth = isEu ? 22 : 26;
+    var K = 0.38;
+    var zoneWidthPct = (zoneHalfWidth * 2) * K;
+    var zoneCenterPct = clamp(50 + targetCorridorX * K, 10, 90);
+    var corridorZoneEl = $('corridorZone');
+    if (corridorZoneEl) {
+      corridorZoneEl.style.left = clamp(zoneCenterPct - zoneWidthPct / 2, 2, 98 - zoneWidthPct) + '%';
+      corridorZoneEl.style.width = zoneWidthPct + '%';
+    }
     if (LK.steerInput !== 0) {
       LK.steerX = clamp((LK.steerX || 0) + LK.steerInput * dt * 115, -120, 120);
     } else {
       // Hands-off: Atmospheric crosswinds & aerodynamic drag push the rocket off-course!
       // Note: No auto-damp! The rocket will deviate and fail if player does nothing.
       if (tsEff > 0.4 && tsEff < 7.2) {
-        var crosswind = -55 * dt;
+        var gust = Math.sin(tsEff * 2.3) * (isEu ? 20 : 12);
+        var crosswind = ((isEu ? -68 : -52) + gust) * dt;
         LK.steerX = clamp((LK.steerX || 0) + crosswind, -120, 120);
       }
     }
     var dev = Math.abs((LK.steerX || 0) - targetCorridorX);
-    var inZone = dev < 28;
+    var inZone = dev <= zoneHalfWidth;
     if (inZone && tsEff > 0 && tsEff < 7.5 && LK.cutT === null) {
       LK.stress = Math.max(0, (LK.stress || 0) - dt * 26);
       LK.combo = Math.min(3.0, (LK.combo || 1.0) + dt * 0.75);
       LK.score = (LK.score || 0) + dt * 160 * LK.combo;
     } else if (tsEff > 0 && tsEff < 7.5 && LK.cutT === null) {
       // Aerodynamic shear stress tears at the rocket when outside corridor!
-      LK.stress = Math.min(100, (LK.stress || 0) + dt * 48);
+      LK.stress = Math.min(100, (LK.stress || 0) + dt * (isEu ? 54 : 48));
       LK.combo = Math.max(1.0, (LK.combo || 1.0) - dt * 2.0);
       if (t - (LK.lastWarnT || 0) > 0.7 && LK.stress > 25) {
         LK.lastWarnT = t;
@@ -291,7 +312,8 @@
 
     var pEl = $('corridorPointer');
     if (pEl) {
-      pEl.style.left = clamp(50 + ((LK.steerX || 0) - targetCorridorX) * 0.45, 5, 95) + '%';
+      var pointerPct = clamp(50 + (LK.steerX || 0) * K, 4, 96);
+      pEl.style.left = pointerPct + '%';
       pEl.className = 'corridor-pointer ' + (inZone ? 'good' : stability > 35 ? 'warn' : 'bad');
     }
     var scEl = $('launchScoreVal'); if (scEl) scEl.textContent = Math.round(LK.score || 0);
@@ -426,34 +448,85 @@
   function pctw(el, v) { el.style.width = clamp(v * 100, 0, 100).toFixed(1) + '%'; }
   function garble(n) { var s = '', h = '0123456789ABCDEF'; for (var i = 0; i < n; i++) s += h[Math.floor(Math.random() * 16)]; return s; }
 
+  var ICON = {
+    moon: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+    sun: '<svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+    bolt: '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+    check: '<svg class="btn-svg" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+    plug: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v6M9 2v4M15 2v4M6 8h12v4a6 6 0 0 1-6 6v4"/></svg>',
+    clock: '<svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    reboot: '<svg class="btn-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    dish: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>',
+    play: '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>',
+    pause: '<svg class="btn-svg" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+    cam: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    gear: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>',
+    signal: '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V4"/><polyline points="13 8 17 4 21 8"/></svg>'
+  };
+
+  function isEuropa(sim) { return sim.scn.id === 'europa'; }
+
   FLOW.startOps = function () {
     S.rumbleStop(); S.alarmStop();
     var sim = E.createOps(OO.scn, OO.order);
     var startScore = (LK && LK.score) ? Math.round(LK.score) : 0;
+    var eu = isEuropa(sim);
     OP = {
-      sim: sim, acc: 0, logN: 0, endT: null, lastPing: 0, yaw: 0.8, flashT: 0,
+      sim: sim, acc: 0, logN: 0, endT: null, yaw: 0.8, flashT: 0,
       banner: null, bannerT: 0, prog: {}, paused: false,
       score: startScore,
       rcsT: 0,
       photos: [],
-      purgedBits: { 0: false, 1: false, 2: false, 3: false },
+      repairCode: null, repairProgress: 0, repairFeedback: '', repairMistakes: 0,
+      miniGames: {
+        eclipse: { hit: false, misses: 0 },
+        computer: { solved: false, mistakes: 0 },
+        radio: { locks: 0, lockSeconds: 0 }
+      },
+      eclipseHit: false,
+      // Antenna tuner state
+      tuneVal: 35, sliderLock: false, tuneAwarded: false,
+      // Orbital drift / thermal alert (Advanced mission only)
+      hasDrift: eu, drift: 0, driftAlert: false, driftHold: 0, driftPen: 0,
       anomalies: [
         {
-          t: 2.0, dur: 5.5, id: 'anom1',
+          t: 2.0, dur: 6.0, id: 'anom1',
           title: OO.scn === 'leo' ? 'Aurora Borealis' : 'Great Red Spot Megastorm',
           desc: OO.scn === 'leo' ? 'Polar geomagnetic plasma glow in the ionosphere.' : 'Massive anti-cyclonic storm system raging across Jupiter.',
+          image: OO.scn === 'leo' ? 'images/discoveries/aurora.jpg' : 'images/discoveries/great-red-spot.jpg',
+          imageAlt: OO.scn === 'leo' ? 'Aurora above Canada photographed from the International Space Station.' : 'NASA illustration of Juno orbiting above Jupiter’s Great Red Spot.',
+          imageCredit: OO.scn === 'leo' ? 'NASA/JSC' : 'NASA/JPL-Caltech/SwRI/MSSS/Christopher Go',
+          imageSource: OO.scn === 'leo' ? 'https://images.nasa.gov/details/iss053e023915' : 'https://images.nasa.gov/details/PIA21770',
           sciencePts: 40, x: 350, y: 190
         },
         {
-          t: 26.0, dur: 6.0, id: 'anom2',
+          t: 13.0, dur: 6.0, id: 'anom2',
+          title: OO.scn === 'leo' ? 'Megacity Night Lights' : 'Io Volcanic Plume Transit',
+          desc: OO.scn === 'leo' ? 'Night-side city grids glowing across a continent from orbit.' : 'A volcanic plume from Io glowing against Jupiter’s dark limb.',
+          image: OO.scn === 'leo' ? 'images/discoveries/city-lights.jpg' : 'images/discoveries/io-plumes.jpg',
+          imageAlt: OO.scn === 'leo' ? 'City lights along the Gulf of Oman photographed from the ISS at night.' : 'Two active volcanic plumes rising from Jupiter’s moon Io.',
+          imageCredit: OO.scn === 'leo' ? 'NASA/Tim Kopra' : 'NASA/JPL',
+          imageSource: OO.scn === 'leo' ? 'https://images.nasa.gov/details/iss046e021993' : 'https://images.nasa.gov/details/PIA00703',
+          sciencePts: 45, x: 330, y: 250
+        },
+        {
+          t: 27.0, dur: 6.5, id: 'anom3',
           title: OO.scn === 'leo' ? 'Amazon River Plume' : 'Europa Vapor Cryo-Geyser',
           desc: OO.scn === 'leo' ? 'Sediment plume flowing into the Atlantic, tracing ocean currents.' : 'Water vapor erupting 200 km high from Europa’s hidden ocean!',
+          image: OO.scn === 'leo' ? 'images/discoveries/amazon-river.jpg' : 'images/discoveries/europa-plume.jpg',
+          imageAlt: OO.scn === 'leo' ? 'NASA satellite image of the Amazon River meeting the Atlantic Ocean.' : 'NASA and Hubble graphic showing evidence of water vapor near Europa’s south pole.',
+          imageCredit: OO.scn === 'leo' ? 'NASA/GSFC/JPL, MISR Team' : 'NASA/ESA/L. Roth/SWRI/University of Cologne',
+          imageSource: OO.scn === 'leo' ? 'https://images.nasa.gov/details/PIA02643' : 'https://images.nasa.gov/details/PIA17660',
           sciencePts: 50, x: 410, y: 260
         },
         {
-          t: 42.0, dur: 6.0, id: 'anom3',
+          t: 46.0, dur: 6.5, id: 'anom4',
           title: OO.scn === 'leo' ? 'Sahara Richat Structure' : 'Conamara Chaos Ice Pack',
           desc: OO.scn === 'leo' ? 'Deep circular geological concentric dome in the desert.' : 'Fractured ice plates floating atop a subterranean ocean.',
+          image: OO.scn === 'leo' ? 'images/discoveries/richat-structure.jpg' : 'images/discoveries/europa-chaos.jpg',
+          imageAlt: OO.scn === 'leo' ? 'The Richat Structure in Mauritania, photographed from the ISS.' : 'Enhanced-color Galileo image of broken blocks of Europa’s icy chaos terrain.',
+          imageCredit: OO.scn === 'leo' ? 'NASA/Anil Menon' : 'NASA/JPL-Caltech/SETI Institute',
+          imageSource: OO.scn === 'leo' ? 'https://images.nasa.gov/details/iss075e0250636' : 'https://images.nasa.gov/details/PIA23873',
           sciencePts: 60, x: 385, y: 220
         }
       ]
@@ -463,6 +536,7 @@
     $('crisisBanner').hidden = true;
     OO.show('ops');
     logEvent({ level: 'info', msg: 'Spacecraft separated and powered up. All systems nominal.', t: 0 });
+    if (eu) logEvent({ level: 'info', msg: 'Jovian environment: attitude drift will build up. Fire RCS bursts [R] to stabilize before photographing.', t: 0 });
 
     // Show Stage 5 Guide on first playthrough
     var seen = false;
@@ -479,6 +553,11 @@
     var sim = OP.sim;
     var a = OP.anomalies.find(function (an) { return !an.captured && sim.t >= an.t && sim.t < an.t + an.dur; });
     if (!a) return;
+    if (OP.hasDrift && OP.drift >= DRIFT_LOCK) {
+      OO.toast('ATTITUDE UNSTABLE: camera cannot hold the target! Fire an RCS burst [R] first.', 'warn');
+      if (S.error) S.error();
+      return;
+    }
     a.captured = true;
     OP.photos.push(a);
     OP.score = (OP.score || 0) + 350;
@@ -514,26 +593,35 @@
   }
 
   var CRISIS = [
-    { id: 'eclipse', n: 1, title: 'NIGHT SHADOW (NO SUNLIGHT)', short: 'Night shadow' },
-    { id: 'seu', n: 2, title: 'COSMIC RAY COMPUTER GLITCH', short: 'Computer glitch' },
+    { id: 'eclipse', n: 1, title: 'DARKNESS', short: 'Darkness' },
+    { id: 'seu', n: 2, title: 'COMPUTER GLITCH', short: 'Computer' },
     { id: 'dsn', n: 3, title: 'RADIO WINDOW CLOSING', short: 'Radio window' }
   ];
 
   function buildOpsPanel(sim) {
-    var b = sim.b, scn = sim.scn, h = '';
-    h += '<div class="panel-title mono"><span class="badge-dot" style="background:var(--cyan)"></span> FLIGHT CONTROL &bull; <span class="live">\u25CF LIVE</span></div>';
+    var b = sim.b, h = '';
+    h += '<div class="panel-title mono"><span class="badge-dot" style="background:var(--cyan)"></span> FLIGHT STATUS</div>';
 
     // 1. Sleek Hazard Stepper
     h += '<div class="ctrack" id="ctrack">' + CRISIS.map(function (c) {
       return '<div class="ct pend" id="ct_' + c.id + '"><span class="ct-dot"></span><span class="ct-title">' + c.n + '. ' + c.short + '</span><b class="mono" id="cts_' + c.id + '">PENDING</b></div>';
     }).join('') + '</div>';
 
-    // 2. Focused Emergency / Command Action Center
+    // Keep the active challenge at the top of the control panel.
     h += '<div class="crisis-box" id="crisisBox"></div>';
+
+    // 2b. Orbital drift / thermal alert (Advanced mission only). Static markup: only text/width are updated per frame.
+    if (isEuropa(sim)) {
+      h += '<section class="ops-card" id="driftCard">' +
+        '<div class="ops-card-head"><span class="mono">CRAFT STABILITY</span><span id="driftChip" class="schip ok">STABLE</span></div>' +
+        '<div class="mrow"><span>DRIFT</span><div class="bar"><div id="mDrift" class="load"></div></div><b class="mono" id="vDrift">0%</b></div>' +
+        '<div class="card-meta mono dim" id="driftNote">Press R to steady the craft.</div>' +
+      '</section>';
+    }
 
     // 3. Clean Power & Battery Status Card
     h += '<section class="ops-card">' +
-      '<div class="ops-card-head"><span class="mono">POWER &amp; BATTERY</span><span id="pwChip" class="schip ok">NOMINAL</span></div>' +
+      '<div class="ops-card-head"><span class="mono">POWER</span><span id="pwChip" class="schip ok">NOMINAL</span></div>' +
       '<div class="mrow"><span>BATTERY</span><div class="bar"><div id="mBatt" class="batt"></div></div><b class="mono" id="vBatt"></b></div>' +
       '<div class="mrow mini-row"><span>SOLAR</span><div class="bar"><div id="mGen" class="gen"></div></div><b class="mono" id="vGen"></b></div>' +
       '<div class="mrow mini-row"><span>USAGE</span><div class="bar"><div id="mLoad" class="load"></div></div><b class="mono" id="vLoad"></b></div>' +
@@ -542,32 +630,22 @@
 
     // 4. Clean Data & Communications Card
     h += '<section class="ops-card">' +
-      '<div class="ops-card-head"><span class="mono">DATA &amp; COMMUNICATIONS</span><span id="vLink" class="schip mono">100%</span></div>' +
+      '<div class="ops-card-head"><span class="mono">DATA</span><span id="vLink" class="schip mono">100%</span></div>' +
       '<div class="mrow"><span>BUFFER</span><div class="bar buf"><div id="mBuf"></div><em class="thr" title="Empty below 35%"></em></div><b class="mono" id="vBuf"></b></div>' +
       '<div class="mrow mini-row"><span>SIGNAL</span><div class="bar"><div id="mLink" class="link"></div></div><b class="mono" id="rOut"></b></div>' +
       '<div class="card-meta mono dim"><span>INCOMING: <b id="rIn" style="color:var(--txt)"></b></span> &bull; <span>BOOST: <b id="boostStatus" style="color:var(--dim)">OFF</b></span></div>' +
     '</section>';
 
-    // 5. Clean Systems Health Card
-    h += '<section class="ops-card">' +
-      '<div class="ops-card-head"><span class="mono">SYSTEM HEALTH</span><span id="cpChip" class="schip ok">NOMINAL</span></div>' +
-      '<div class="sys-health-grid">' +
-        '<div class="sys-item"><span>Flight Computer</span><b class="mono" id="cpNote">commands accepted</b></div>' +
-        '<div class="sys-item"><span>Payload Status</span><b class="mono" id="instSummary">' + b.instruments.length + ' Active</b></div>' +
-      '</div>' +
-      // Hidden compatibility controls to ensure no JS errors
-      '<div style="display:none" aria-hidden="true">' +
+    h += '<div style="display:none" aria-hidden="true">' +
+        '<span id="cpChip"></span><span id="cpNote"></span><span id="instSummary"></span>' +
         '<div id="instGrid">' + b.instruments.map(function (i) { return '<button class="sw" data-inst="' + i.id + '" aria-pressed="true"><span class="led"></span><b>' + esc(i.code) + '</b><i class="mono">\u2212' + i.draw + ' W</i></button>'; }).join('') + '</div>' +
         '<div id="thrCtl">' + [[1, 'NORMAL'], [0.5, '50%'], [0.25, '25%'], [0, 'PAUSE CAMERAS']].map(function (x) { return '<button data-th="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+        '<span id="boostStatus"></span>' +
         '<button class="sw" id="swBoost" data-act="boost" aria-pressed="false"></button>' +
         '<div id="regs">' + new Array(16 + 1).join('<i></i>') + '</div>' +
         '<button class="sw" id="swBackup" data-act="backup" aria-pressed="false"></button>' +
         '<button class="sw" id="btnReboot" data-act="reboot"></button>' +
-      '</div>' +
-    '</section>';
-
-    // 6. Compact Flight Log
-    h += '<section class="ops-card ops-log-card"><div class="ops-card-head"><span class="mono">FLIGHT EVENT LOG</span></div><ul id="evlog" class="evlog"></ul></section>';
+    '</div>';
 
     $('opsPanel').innerHTML = h;
   }
@@ -597,9 +675,9 @@
         var idx = +k.slice(-1) - 1;
         S.alarmStart(); OP.flashT = 0.6; $('opsFlash').className = 'flash on'; setTimeout(function () { $('opsFlash').className = 'flash'; }, 500);
         showBanner('crit', 'EMERGENCY ' + (idx + 1) + ' / 3 \u2022 ' + CRISIS[idx].title,
-          idx === 0 ? 'Solar power has dropped to zero! Sleep instruments to preserve battery until sunrise.' :
-          idx === 1 ? 'Flight computer frozen by radiation! Tap the 4 RAM chips or route backup power to reboot.' :
-          'Earth antenna window is closing! Click Activate Boost to beam down stored data before signal is lost.', 0);
+          idx === 0 ? 'Hit the green mark to save battery until sunrise.' :
+          idx === 1 ? 'Computer frozen. Repeat the 5-number repair code.' :
+          'Slide the knob into the green band and hold it there to send data.', 0);
       } else if (k === 'eclipseEnd' || k === 'seuEnd' || k === 'dsnEnd') {
         if (k === 'eclipseEnd' && sim && sim.b && sim.b.instruments) {
           sim.b.instruments.forEach(function (i) { sim.inst[i.id] = true; });
@@ -613,85 +691,83 @@
     }
   }
 
-  function crisisBoxText(sim) {
-    var s = sim, scn = s.scn, b = s.b, ph = s.phase, h = '', cls = 'crisis-box';
-    if (ph === 'eclipse') {
-      var remain = E.DUR.eclipse - s.phaseT, drain = Math.max(0, s.load - b.genRTG), left = drain > 0 ? s.batt / (drain * scn.hoursPerSec) : Infinity;
-      var safe = left >= remain;
-      cls += ' active ' + (s.brown ? 'bad' : safe ? 'ok' : 'bad');
-      var anyOn = b.instruments.some(function (i) { return s.inst[i.id]; });
-      var eclipseBtn = anyOn
-        ? '<button class="crisis-act-btn pulse-crisis" data-act="allOff"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> SLEEP INSTRUMENTS (SAVE BATTERY)</button>'
-        : '<button class="crisis-act-btn ok-act" data-act="allOn"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> WAKE INSTRUMENTS (IN SUNLIGHT)</button>';
-      var rcsBtn = '<button class="crisis-act-btn rcs-act" data-act="rcs"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> RCS BURST (-3s IN SHADOW)</button>';
+  /* ---------- Emergency panel ----------
+   * crisisBoxText() returns [className, html, structureKey].
+   * The HTML is only re-written when structureKey changes (i.e. when buttons actually
+   * need to change). Anything that changes every frame (countdowns, battery, buffer %,
+   * reboot timer, lock status) lives in a span with an ID and is updated in place by
+   * updateCrisisDyn(), so live button DOM nodes are never destroyed mid-click. */
+  function eclInfo(s) {
+    var b = s.b, scn = s.scn;
+    var remain = Math.max(0, E.DUR.eclipse - s.phaseT), drain = Math.max(0, s.load - b.genRTG);
+    var left = drain > 0 ? s.batt / (drain * scn.hoursPerSec) : Infinity;
+    var safe = left >= remain;
+    var txt = s.brown ? 'POWER LOST' : safe ? 'BATTERY SAFE' : 'BATTERY AT RISK';
+    var col = s.brown ? 'var(--red)' : safe ? 'var(--green)' : 'var(--amber)';
+    return { remain: remain, safe: safe, txt: txt, col: col };
+  }
 
-      h = '<div class="crisis-head"><span class="badge-alert">EMERGENCY 1</span> <b>NIGHT SHADOW: NO SOLAR POWER</b></div>' +
-        '<p>Spacecraft is in planetary shadow for <b>' + Math.max(0, remain).toFixed(0) + 's</b>. Battery: <b>' + Math.round(s.batt) + ' Wh</b>' + (s.brown ? ' &bull; <b style="color:var(--red)">BROWNOUT!</b>' : safe ? ' &bull; <b style="color:var(--green)">Power Safe</b>' : ' &bull; <b style="color:var(--amber)">DRAINING FAST!</b>') + '</p>' +
-        '<div class="fix-guidance-card' + (anyOn ? '' : ' ok-state') + '">' +
-          '<div class="fix-guidance-head"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> <b>' + (anyOn ? 'PROCEDURE: HOW TO RESOLVE:' : 'STATUS: INSTRUMENTS IN POWER-SAVING SLEEP') + '</b></div>' +
-          '<p class="fix-explainer">' + (anyOn ? 'Instruments consume battery power in the dark. Click Sleep Instruments below to protect your battery until sunrise!' : 'Battery drain is minimized. Waiting for sunrise in ' + Math.max(0, remain).toFixed(0) + 's. You can use RCS Bursts to exit shadow faster!') + '</p>' +
-          '<div class="crisis-actions-wrap steps-wrap">' + eclipseBtn + rcsBtn + '</div>' +
+  function eclipseNeedle(phaseT) { return ((phaseT % 4.2) / 4.2) * 100; }
+
+  function crisisBoxText(sim) {
+    var s = sim, scn = s.scn, b = s.b, ph = s.phase, h = '', cls = 'crisis-box', key = ph;
+    if (ph === 'eclipse') {
+      var info = eclInfo(s);
+      cls += ' active ' + (s.brown ? 'bad' : info.safe ? 'ok' : 'bad');
+      key = 'ecl|' + OP.eclipseHit;
+      h = '<div class="crisis-head"><span class="badge-alert">1</span> <b>SPACECRAFT IN DARKNESS</b></div>' +
+        '<p><b id="eclCountdown">' + info.remain.toFixed(0) + '</b>s until sunlight &bull; Battery <b id="eclBatt">' + Math.round(s.batt) + ' Wh</b> &bull; <b id="eclStatus" style="color:' + info.col + '">' + info.txt + '</b></p>' +
+        '<div class="mini-game">' +
+          '<div class="mini-game-copy"><b id="eclGameStatus">' + (OP.eclipseHit ? 'POWER SAVED' : 'HIT WHEN THE MARKER IS GREEN') + '</b><span>Turning sensors off saves battery.</span></div>' +
+          '<div class="timing-track" aria-label="Timing bar">' +
+            '<span class="timing-zone" style="left:38%;width:20%"></span><i id="eclNeedle" style="left:' + eclipseNeedle(s.phaseT) + '%"></i>' +
+          '</div>' +
+          '<button class="mini-game-btn" id="eclHitBtn" data-act="eclipse-hit"' + (OP.eclipseHit ? ' disabled' : '') + '>HIT TO SAVE POWER</button>' +
         '</div>';
     } else if (ph === 'seu') {
       cls += ' active ' + (s.computerOK ? 'ok' : 'bad');
       var win = scn.seuWindow - s.phaseT;
-      var s1Done = s.backup, s2Busy = s.rebooting;
-      var b1Cls = 'crisis-act-btn ' + (s1Done ? 'done-act' : 'pulse-crisis');
-      var b2Cls = 'crisis-act-btn ' + (!s1Done ? 'disabled-act' : s2Busy ? 'busy-act' : 'pulse-crisis');
-      var b1Txt = s1Done
-        ? '<svg class="btn-svg" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> 1. BACKUP POWER ON'
-        : '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v6M9 2v4M15 2v4M6 8h12v4a6 6 0 0 1-6 6v4"/></svg> 1. SWITCH BACKUP POWER';
-      var b2Txt = s2Busy
-        ? '<svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> REBOOTING (' + Math.max(0, s.rebootT).toFixed(1) + 's)...'
-        : '<svg class="btn-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 2. REBOOT COMPUTER';
-
-      var purgedCount = [0, 1, 2, 3].filter(function (idx) { return OP && OP.purgedBits && OP.purgedBits[idx]; }).length;
-      var bitButtons = [0, 1, 2, 3].map(function (idx) {
-        var isDone = OP && OP.purgedBits && OP.purgedBits[idx];
-        return '<button class="glitch-bit ' + (isDone ? 'bit-purged' : 'bit-corrupt') + '" data-purge-bit="' + idx + '" title="Tap to purge radiation">' +
-          '<span class="bit-tag">RAM 0' + (idx + 1) + '</span><b>' + (isDone ? '0x00 OK' : 'CORRUPT') + '</b></button>';
+      if (!OP.repairCode && s.seu) {
+        OP.repairCode = [];
+        for (var digit = 0; digit < 5; digit++) OP.repairCode.push((s.seu.word >> (digit * 2)) & 3);
+      }
+      var codeText = OP.repairCode.map(function (n) { return '<b class="code-digit">' + (n + 1) + '</b>'; }).join('<span class="code-arrow">&rarr;</span>');
+      var pads = [0, 1, 2, 3].map(function (n) {
+        return '<button class="repair-pad" data-repair-pad="' + n + '" aria-label="Press ' + (n + 1) + '">' + (n + 1) + '</button>';
       }).join('');
-
-      h = '<div class="crisis-head"><span class="badge-alert">EMERGENCY 2</span> <b>COSMIC RAY HIT: COMPUTER FROZEN</b></div>' +
-        '<p>Radiation hit memory! Watchdog reset in <b>' + Math.max(0, win).toFixed(0) + 's</b>.</p>' +
-        '<div class="fix-guidance-card">' +
-          '<div class="fix-guidance-head"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> <b>PROCEDURE: CHOOSE EITHER RESTORATION METHOD:</b></div>' +
-          '<div class="fix-method-block">' +
-            '<div class="method-title mono">METHOD 1: TAP ALL 4 FLASHING RAM CHIPS TO PURGE RADIATION</div>' +
-            '<div class="purge-bits-grid">' + bitButtons + '</div>' +
-            '<div class="method-sub mono">Progress: <b style="color:' + (purgedCount === 4 ? 'var(--green)' : 'var(--cyan)') + '">' + purgedCount + ' / 4 cleaned</b> (Tap all 4 to instantly restore computer!)</div>' +
-          '</div>' +
-          '<div class="fix-method-block" style="margin-top:6px;">' +
-            '<div class="method-title mono">METHOD 2: 2-STEP HARDWARE BACKUP &amp; REBOOT</div>' +
-            '<div class="reboot-steps-grid">' +
-              '<button class="' + b1Cls + '" data-act="backup">' + b1Txt + '</button>' +
-              '<button class="' + b2Cls + '" data-act="reboot">' + b2Txt + '</button>' +
-            '</div>' +
-          '</div>' +
+      key = 'seu|' + OP.repairProgress + '|' + s.computerOK;
+      h = '<div class="crisis-head"><span class="badge-alert">2</span> <b>RADIATION FROZE THE COMPUTER</b></div>' +
+        '<p>Reset in <b id="seuCountdown">' + Math.max(0, win).toFixed(0) + '</b>s &bull; Repeat this 5-number code:</p>' +
+        '<div class="mini-game">' +
+          '<div class="repair-code" aria-label="Repair code">' + codeText + '</div>' +
+          '<div class="repair-pads">' + pads + '</div>' +
+          '<div class="mini-game-copy"><b id="repairStatus">Tap the numbers in order · ' + OP.repairProgress + ' / 5</b></div>' +
         '</div>';
     } else if (ph === 'dsn') {
-      var fill = s.buffer / s.bufCap, rem = E.DUR.dsn - s.phaseT;
+      syncTuneZone();
+      var fill = s.buffer / s.bufCap, rem = E.DUR.dsn - s.phaseT, zone = tuneZone();
       cls += ' active ' + (fill <= 0.35 ? 'ok' : fill > 0.85 ? 'bad' : 'warn');
-      var boostOn = s.boost, isPaused = s.throttle === 0;
-      var boostBtn = '<button class="crisis-act-btn ' + (boostOn ? 'done-act' : 'pulse-crisis') + '" data-act="boost">' + (boostOn ? '<svg class="btn-svg" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> BOOST ACTIVE (+50% SPEED)' : '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg> ACTIVATE TRANSMIT BOOST') + '</button>';
-      var pauseBtn = '<button class="crisis-act-btn ghost-act" data-th="' + (isPaused ? '1' : '0') + '">' + (isPaused ? '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg> RESUME CAMERAS' : '<svg class="btn-svg" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> PAUSE CAMERAS') + '</button>';
+      key = 'dsn'; // fully static structure: dynamic bits are updated in place (keeps the slider alive while dragging)
       var tuner = '<div class="antenna-tuner-box">' +
-        '<div class="tuner-head mono"><span>EARTH ANTENNA TRACKING BEAM</span><b id="tuneStatus" style="color:var(--cyan)">' + (s.boost ? 'LOCKED 100% (+50% SPEED)' : 'ALIGN SLIDER TO BOOST') + '</b></div>' +
-        '<div class="tuner-slider-wrap">' +
-          '<input type="range" id="antennaSlider" min="0" max="100" value="' + (s.boost ? 90 : 35) + '" class="antenna-slider">' +
-        '</div></div>';
-
-      h = '<div class="crisis-head"><span class="badge-alert">EMERGENCY 3</span> <b>RADIO WINDOW CLOSING: EARTH OUT OF RANGE</b></div>' +
-        '<p>Earth contact ends in <b>' + Math.max(0, rem).toFixed(0) + 's</b>. Memory: <b>' + Math.round(fill * 100) + '% full</b> (Goal: under 35%).</p>' +
-        '<div class="fix-guidance-card' + (fill <= 0.35 ? ' ok-state' : '') + '">' +
-          '<div class="fix-guidance-head"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V4"/><polyline points="13 8 17 4 21 8"/></svg> <b>' + (fill <= 0.35 ? 'STATUS: BUFFER SAFELY CLEARED!' : 'PROCEDURE: HOW TO RESOLVE:') + '</b></div>' +
-          '<p class="fix-explainer">' + (fill <= 0.35 ? 'All science telemetry safely received by NASA Earth ground station!' : 'Transmit science data faster before contact is lost! Click Activate Boost or pause cameras.') + '</p>' +
+        '<div class="tuner-head mono"><span>SIGNAL STRENGTH</span><b id="tuneStatus" style="color:var(--cyan)"></b></div>' +
+        '<div class="tuner-slider-wrap"><div style="position:relative">' +
+          '<div id="tuneZone" class="signal-zone" style="position:absolute;left:' + zone.left + '%;width:' + (zone.right - zone.left) + '%;top:0;bottom:0;pointer-events:none"></div>' +
+          '<input type="range" id="antennaSlider" min="0" max="100" value="' + OP.tuneVal + '" class="antenna-slider" aria-label="Drag the radio slider into the green lock zone and hold it there" aria-valuetext="Move right into green">' +
+        '</div></div></div>';
+      h = '<div class="crisis-head"><span class="badge-alert">3</span> <b>RADIO WINDOW CLOSING</b></div>' +
+        '<p><b id="dsnCountdown">' + Math.max(0, rem).toFixed(0) + '</b>s left &bull; Data waiting to send: <b id="dsnFill">' + Math.round(fill * 100) + '%</b></p>' +
+        '<div class="fix-guidance-card" id="dsnGuide">' +
+          '<div class="mini-game-copy dsn-guide-copy"><b id="dsnGuideHead">MOVE RIGHT INTO GREEN</b><span id="dsnExplain">Drag the cyan knob into the 68-86% green band. Hold it there until data remaining is 35% or less.</span></div>' +
           tuner +
-          '<div class="crisis-actions-wrap dsn-wrap">' + boostBtn + pauseBtn + '</div>' +
+          '<div class="tuner-scale"><span>WEAK</span><b>LOCK ZONE 68-86%</b><span>STRONG</span></div>' +
+          '<div class="crisis-actions-wrap dsn-wrap">' +
+            '<button class="mini-game-btn secondary" id="dsnPauseBtn" data-th="0"><span id="dsnPauseLbl">PAUSE NEW DATA</span></button>' +
+          '</div>' +
         '</div>';
     } else if (ph === 'nom1') {
       var anySleeping = b.instruments.some(function (i) { return !s.inst[i.id]; });
-      var wakeBtn = anySleeping ? '<button class="crisis-act-btn ok-act" style="margin-top:6px;" data-act="allOn"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> WAKE ALL INSTRUMENTS</button>' : '';
+      key = 'nom1|' + anySleeping;
+      var wakeBtn = anySleeping ? '<button class="crisis-act-btn ok-act" style="margin-top:6px;" data-act="allOn">' + ICON.sun + ' WAKE ALL INSTRUMENTS</button>' : '';
       h = '<div class="crisis-head nominal-head"><span class="badge-ok">SUNRISE CONFIRMED</span> <b>ALL SYSTEMS GREEN \u2022 SUNLIGHT RESTORED</b></div>' +
         '<p>Solar panels are producing full power. Science instruments are collecting orbital discovery points!</p>' + wakeBtn;
     } else if (ph === 'nom2') {
@@ -701,98 +777,134 @@
       h = '<div class="crisis-head nominal-head"><span class="badge-ok">FLIGHT COMPLETE</span> <b>ORBITAL TRAJECTORY FINISHED</b></div><p>Calculating final NASA mission score\u2026</p>';
       cls += ' active ok';
     } else {
+      key = 'nom0';
       h = '<div class="crisis-head nominal-head"><span class="badge-ok">ALL SYSTEMS GREEN</span> <b>CRUISING IN ORBIT</b></div><p>' +
         (ph === 'nom0' ? 'Spacecraft orbiting smoothly. Prepare systems: <b>night-time eclipse approaches</b>.' : 'Spacecraft cruising nominally.') + '</p>';
     }
-    return [cls, h];
+    return [cls, h, key];
   }
 
-  function purgeBit(idx) {
-    if (!OP || OP.purgedBits[idx]) return;
-    OP.purgedBits[idx] = true;
-    OP.score = (OP.score || 0) + 120;
-    if (S.zap) S.zap();
-    OO.toast('Memory cell RAM 0' + (idx + 1) + ' purged! +120 PTS', 'good');
-    var allDone = [0, 1, 2, 3].every(function (i) { return OP.purgedBits[i]; });
-    if (allDone) {
-      OP.sim.computerOK = true;
-      OP.sim.rebooting = false;
-      OP.sim.backup = false;
-      OP.sim.seu = null;
-      if (!OP.sim.results.seu) OP.sim.results.seu = { ok: true, time: OP.sim.phaseT };
-      if (S.good) S.good();
-      OP.score = (OP.score || 0) + 500;
-      OO.toast('ALL RADIATION PURGED! Flight Computer Restored! +500 PTS!', 'good');
-    }
-    handleEvents(OP.sim);
-  }
-
-  function renderDeckEmergency(sim) {
-    var deck = $('deckEmergencyContent');
-    if (!deck) return;
-    var ph = sim.phase, b = sim.b, h = '';
-    if (ph === 'seu') {
-      var bits = [0, 1, 2, 3];
-      var purgedCount = bits.filter(function (idx) { return OP && OP.purgedBits && OP.purgedBits[idx]; }).length;
-      var chipLabels = ['0x7F', '0x3A', '0x8C', '0x99'];
-      var chipStatus = ['CORRUPT', 'FLIPPED', 'PARITY', 'FAULT'];
-      var chipsHtml = bits.map(function (idx) {
-        var isDone = OP && OP.purgedBits && OP.purgedBits[idx];
-        return '<button class="hex-chip ' + (isDone ? 'purged' : 'corrupt') + '" data-purge-bit="' + idx + '" title="Tap to zap radiation ion">' +
-          '<span class="mono hex-addr">RAM ' + chipLabels[idx] + '</span>' +
-          '<b>' + (isDone ? '0x00 OK' : chipStatus[idx] + ' FAULT') + '</b>' +
-          '</button>';
-      }).join('');
-      var s1Done = sim.backup, s2Busy = sim.rebooting;
-      h = '<div class="console-head mono">' +
-        '<span class="mod-led red-blink"></span>' +
-        '<span style="color:var(--red)">COSMIC RAY FAULT &bull; TAP 4 RAM CORES</span>' +
-        '<b id="deckPurgeTally" style="color:' + (purgedCount === 4 ? 'var(--green)' : 'var(--cyan)') + '">' + purgedCount + ' / 4 CLEANED</b>' +
-        '</div>' +
-        '<div class="hex-cores-row">' + chipsHtml + '</div>' +
-        '<div class="deck-sub-row mono">' +
-        '<span>MANUAL BYPASS:</span>' +
-        '<button class="deck-btn-small" data-act="backup">' + (s1Done ? '1. BACKUP ON [ACTIVE]' : '1. BACKUP POWER') + '</button>' +
-        '<button class="deck-btn-small" data-act="reboot">' + (s2Busy ? 'REBOOTING (' + Math.max(0, sim.rebootT).toFixed(1) + 's)...' : '2. REBOOT CPU') + '</button>' +
-        '</div>';
+  /* Per-frame in-place updates for the emergency panel (never replaces nodes). */
+  function updateCrisisDyn(sim) {
+    var ph = sim.phase, s = sim;
+    if (ph === 'eclipse') {
+      var info = eclInfo(s);
+      setText('eclCountdown', info.remain.toFixed(0));
+      setText('eclBatt', Math.round(s.batt) + ' Wh');
+      var needle = $('eclNeedle');
+      if (needle) needle.style.left = eclipseNeedle(s.phaseT) + '%';
+      var st = $('eclStatus');
+      if (st) { if (st.textContent !== info.txt) st.textContent = info.txt; st.style.color = info.col; }
+      setText('eclGameStatus', OP.eclipseHit ? 'POWER SAVED' : OP.miniGames.eclipse.misses ? 'MISSED — WAIT FOR GREEN' : 'HIT WHEN THE MARKER IS GREEN');
+    } else if (ph === 'seu') {
+      setText('seuCountdown', Math.max(0, s.scn.seuWindow - s.phaseT).toFixed(0));
+      setText('repairStatus', OP.repairFeedback || ('Tap the numbers in order · ' + OP.repairProgress + ' / 5'));
     } else if (ph === 'dsn') {
-      var isBoost = sim.boost;
-      h = '<div class="console-head mono">' +
-        '<span class="mod-led cyan-active"></span>' +
-        '<span>EARTH CARRIER WAVE LOCK (8.420 GHz)</span>' +
-        '<b id="deckLockStatus" style="color:' + (isBoost ? 'var(--green)' : 'var(--cyan)') + '">' + (isBoost ? 'CARRIER LOCKED (100% SIGNAL)' : 'ALIGN SLIDER (80-100%)') + '</b>' +
-        '</div>' +
-        '<div class="rf-spectrum-bar">' +
-        '<input type="range" id="deckAntennaSlider" min="0" max="100" value="' + (isBoost ? 90 : 35) + '" class="console-slider" title="Tune frequency to lock Earth carrier beam">' +
-        '<button class="deck-btn-boost" data-act="boost">' + (isBoost ? 'BEAM LOCKED (+50% SPEED)' : '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg> LOCK BEAM BOOST') + '</button>' +
-        '</div>';
-    } else if (ph === 'eclipse') {
-      var rem = Math.max(0, E.DUR.eclipse - sim.phaseT);
-      var anyOn = b.instruments.some(function (i) { return sim.inst[i.id]; });
-      h = '<div class="console-head mono">' +
-        '<span class="mod-led amber-blink"></span>' +
-        '<span style="color:var(--amber)">PLANETARY SHADOW: ZERO SOLAR POWER</span>' +
-        '<b style="color:var(--txt)">DARK: ' + rem.toFixed(0) + 's</b>' +
-        '</div>' +
-        '<div class="shadow-deck-row">' +
-        '<button class="deck-action-btn eco" data-act="' + (anyOn ? 'allOff' : 'allOn') + '">' + (anyOn ? '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> ECO SLEEP SENSORS' : '<svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> WAKE SENSORS') + '</button>' +
-        '<button class="deck-action-btn rcs pulse-crisis" data-act="rcs"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> THRUST BURST (-2.8s IN SHADOW)</button>' +
-        '</div>';
-    } else {
-      h = '<div class="console-head mono">' +
-        '<span class="mod-led active"></span>' +
-        '<span>ORBITAL RECONNAISSANCE SCANNER</span>' +
-        '<b style="color:var(--green)">ALL SYSTEMS GREEN</b>' +
-        '</div>' +
-        '<div class="nom-deck-row">' +
-        '<span class="mono dim">SCANNING PLANET SURFACE FOR DISCOVERIES...</span>' +
-        '<button class="deck-action-btn snap" id="btnDeckSnap"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> SCANNER READY [SPACE]</button>' +
-        '</div>';
+      var fill = s.buffer / s.bufCap, rem = Math.max(0, E.DUR.dsn - s.phaseT), cleared = fill <= 0.35;
+      setText('dsnCountdown', rem.toFixed(0));
+      setText('dsnFill', Math.round(fill * 100) + '%');
+      var gd = $('dsnGuide'); if (gd) setCls(gd, 'fix-guidance-card' + (cleared ? ' ok-state' : ''));
+      var zone = tuneZone(s.phaseT);
+      var tuneHint = s.boost ? 'SIGNAL LOCKED' : OP.tuneVal < zone.left ? 'MOVE RIGHT INTO GREEN' : OP.tuneVal > zone.right ? 'MOVE LEFT INTO GREEN' : 'HOLD IN GREEN';
+      setText('dsnGuideHead', cleared ? 'DATA SENT TO EARTH' : tuneHint);
+      setText('dsnExplain', cleared ? 'Data sent. Buffer is at 35% or less.' : 'Drag the cyan knob into the 68-86% green band and hold until data remaining is 35% or less.');
+      var sl = $('antennaSlider');
+      if (sl) sl.setAttribute('aria-valuetext', tuneHint);
+      var paused = s.throttle === 0, pb = $('dsnPauseBtn');
+      if (pb) pb.setAttribute('data-th', paused ? '1' : '0');
+      if (pb) pb.style.display = fill > 0.7 && !cleared ? '' : 'none';
+      setText('dsnPauseLbl', paused ? 'RESUME DATA' : 'PAUSE NEW DATA');
+      var ts = $('tuneStatus');
+      if (ts) {
+        var txt = s.boost ? 'LOCKED' : OP.tuneVal < zone.left ? 'MOVE RIGHT' : OP.tuneVal > zone.right ? 'MOVE LEFT' : 'HOLD';
+        if (ts.textContent !== txt) ts.textContent = txt;
+        ts.style.color = s.boost ? 'var(--green)' : 'var(--cyan)';
+      }
+      if (sl && root.document.activeElement !== sl && +sl.value !== OP.tuneVal) sl.value = OP.tuneVal;
     }
-    if (deck.getAttribute('data-h') !== h) {
-      deck.innerHTML = h;
-      deck.setAttribute('data-h', h);
+  }
+
+  function tapEclipse() {
+    if (!OP || OP.sim.phase !== 'eclipse' || OP.eclipseHit) return;
+    var needle = eclipseNeedle(OP.sim.phaseT);
+    if (needle < 38 || needle > 58) {
+      OP.miniGames.eclipse.misses++;
+      setText('eclGameStatus', 'MISSED — WAIT FOR GREEN');
+      if (S.error) S.error();
+      return;
     }
+    E.act(OP.sim, { type: 'eclipseFix' });
+    OP.eclipseHit = true;
+    OP.miniGames.eclipse.hit = true;
+    OP.score = (OP.score || 0) + 250;
+    if (S.good) S.good();
+    OO.toast('ECLIPSE SAFE — sunlight restored.', 'good');
+  }
+
+  function tapRepairPad(idx) {
+    if (!OP || OP.sim.phase !== 'seu' || !OP.repairCode || OP.sim.computerOK) return;
+    if (idx !== OP.repairCode[OP.repairProgress]) {
+      OP.repairProgress = 0;
+      OP.repairMistakes++;
+      OP.miniGames.computer.mistakes++;
+      OP.repairFeedback = 'Not quite — start the code again.';
+      return;
+    }
+    OP.repairProgress++;
+    OP.repairFeedback = '';
+    if (S.zap) S.zap();
+    if (OP.repairProgress < OP.repairCode.length) return;
+    var sim = OP.sim;
+    if (E.act(sim, { type: 'repairCode' })) {
+      OP.miniGames.computer.solved = true;
+      OP.score = (OP.score || 0) + 400;
+      if (S.good) S.good();
+      OO.toast('CODE MATCHED — computer restored.', 'good');
+      handleEvents(sim);
+    }
+  }
+
+  /* Orbital drift / thermal alert (Advanced mission) */
+  function updateDrift(dt) {
+    if (!OP.hasDrift || OP.sim.done) return;
+    var sim = OP.sim;
+    OP.drift = clamp(OP.drift + (2.8 + 1.2 * Math.sin(sim.t * 0.7)) * dt, 0, 100);
+    if (OP.drift >= DRIFT_ALERT && !OP.driftAlert) {
+      OP.driftAlert = true;
+      logEvent({ level: 'warn', msg: 'THERMAL ALERT: attitude drift ' + Math.round(OP.drift) + '%. Radiator pointing is off. Fire RCS to stabilize!', t: sim.t });
+      OO.toast('THERMAL ALERT: attitude drifting! Fire RCS [R] to stabilize.', 'warn');
+      if (S.warn) S.warn();
+    } else if (OP.drift < DRIFT_ALERT - 15 && OP.driftAlert) {
+      OP.driftAlert = false;
+    }
+    if (OP.drift >= 100) {
+      OP.driftHold += dt;
+      if (OP.driftHold > 4) {
+        OP.driftHold = 0;
+        OP.score = Math.max(0, (OP.score || 0) - 100);
+        if (OP.driftPen < 2) {
+          OP.driftPen++;
+          sim.pen.push({ key: 'drift', pts: 8, msg: 'Attitude drift left uncorrected: the craft overheated and lost pointing.' });
+          logEvent({ level: 'crit', msg: 'ATTITUDE LOST: overheating and mispointing. Safe-mode penalty applied.', t: sim.t });
+          if (S.error) S.error();
+        }
+      }
+    } else OP.driftHold = 0;
+  }
+
+  function updateDriftUI() {
+    if (!OP.hasDrift) return;
+    var d = OP.drift, mb = $('mDrift');
+    if (mb) { pctw(mb, d / 100); setCls(mb, 'load' + (d >= DRIFT_ALERT ? ' low' : '')); }
+    setText('vDrift', Math.round(d) + '%');
+    var chip = $('driftChip');
+    if (chip) {
+      var ct = d >= 100 ? 'ATTITUDE LOST' : d >= DRIFT_ALERT ? 'THERMAL ALERT' : d >= 40 ? 'DRIFTING' : 'STABLE';
+      var cc = 'schip ' + (d >= DRIFT_ALERT ? 'bad' : d >= 40 ? 'warn' : 'ok');
+      if (chip.textContent !== ct) chip.textContent = ct;
+      if (chip.className !== cc) chip.className = cc;
+    }
+    setText('driftNote', d >= DRIFT_LOCK ? 'Craft is too unsteady. Press R to steady it.' : d >= DRIFT_ALERT ? 'Craft is heating up. Press R to steady it.' : 'Jupiter\u2019s magnetic field turns the craft. Press R to steady it before photos.');
   }
 
   function updateOps(dt) {
@@ -805,6 +917,10 @@
     OP.yaw += dt * 0.45;
     var jx = 0, jy = 0;
     if (!ok) { jx = (Math.random() - 0.5) * 3; jy = (Math.random() - 0.5) * 3; }
+    if (OP.hasDrift && OP.drift > DRIFT_ALERT - 10) {
+      var wob = (OP.drift - (DRIFT_ALERT - 10)) * 0.05;
+      jx += (Math.random() - 0.5) * wob; jy += (Math.random() - 0.5) * wob;
+    }
     if (OP.rcsT > 0) OP.rcsT -= dt;
     var rcsPlumes = (OP.rcsT > 0)
       ? '<g class="rcs-plumes" opacity="' + Math.min(1, OP.rcsT * 2.5).toFixed(2) + '">' +
@@ -834,6 +950,7 @@
     var fx = '';
     if (sim.phase === 'seu' && !ok) for (i = 0; i < 5; i++) { var sx = X + 60 + Math.random() * 160, sy = Y - 120 - Math.random() * 100; fx += '<line x1="' + sx.toFixed(0) + '" y1="' + sy.toFixed(0) + '" x2="' + (sx - 26).toFixed(0) + '" y2="' + (sy + 30).toFixed(0) + '" stroke="#facc15" stroke-width="1.6" opacity="' + (0.4 + Math.random() * 0.5).toFixed(2) + '"/>'; }
     if (sim.phase === 'eclipse') fx += '<text x="' + (X).toFixed(0) + '" y="' + (Y - 82).toFixed(0) + '" class="ops-label warn" text-anchor="middle">IN SHADOW \u2022 NO SOLAR POWER</text>';
+    if (OP.hasDrift && OP.drift >= DRIFT_ALERT) fx += '<text x="' + (X).toFixed(0) + '" y="' + (Y - 98).toFixed(0) + '" class="ops-label warn" text-anchor="middle">THERMAL ALERT \u2022 FIRE RCS</text>';
     $('opsFxG').innerHTML = fx;
     $('opsClock').textContent = 'MET ' + pad2(Math.floor(t / 60)) + ':' + pad2(Math.floor(t) % 60);
     $('opsOrbitTag').innerHTML = (sim.sunlit ? '<span class="dot ok"></span>SUNLIT' : '<span class="dot bad"></span>IN ' + esc(scn.shadowName.toUpperCase())) + ' \u2022 ' + esc(scn.orbitLabel.toUpperCase());
@@ -896,42 +1013,27 @@
       ism.style.color = anySleeping ? 'var(--amber)' : 'var(--green)';
     }
     // crisis tracker + box
-    var st = { eclipse: 'pend', seu: 'pend', dsn: 'pend' }, tx = { eclipse: 'PENDING', seu: 'PENDING', dsn: 'PENDING' };
-    if (sim.phase === 'eclipse') { st.eclipse = 'act'; tx.eclipse = 'ACTIVE'; }
-    if (sim.results.eclipse) { st.eclipse = sim.results.eclipse.ok ? 'ok' : 'bad'; tx.eclipse = sim.results.eclipse.ok ? 'SURVIVED' : 'BROWNOUT'; }
-    if (sim.phase === 'seu') { st.seu = 'act'; tx.seu = 'ACTIVE'; }
-    if (sim.results.seu) { st.seu = sim.results.seu.ok ? 'ok' : 'bad'; tx.seu = sim.results.seu.ok ? 'FIXED ' + sim.results.seu.time.toFixed(1) + 's' : 'TIMED OUT'; }
-    if (sim.phase === 'dsn') { st.dsn = 'act'; tx.dsn = 'ACTIVE'; }
-    if (sim.results.dsn) { st.dsn = sim.results.dsn.cleared ? 'ok' : 'bad'; tx.dsn = sim.results.dsn.cleared ? 'CLEARED' : 'DATA LEFT'; }
-    CRISIS.forEach(function (c) { setCls($('ct_' + c.id), 'ct ' + st[c.id]); $('cts_' + c.id).textContent = tx[c.id]; });
-    var cb = crisisBoxText(sim); setCls($('crisisBox'), cb[0]); if ($('crisisBox').getAttribute('data-h') !== cb[1]) { $('crisisBox').innerHTML = cb[1]; $('crisisBox').setAttribute('data-h', cb[1]); }
+    var st = { eclipse: 'pend', seu: 'pend', dsn: 'pend' }, tx2 = { eclipse: 'PENDING', seu: 'PENDING', dsn: 'PENDING' };
+    if (sim.phase === 'eclipse') { st.eclipse = 'act'; tx2.eclipse = 'ACTIVE'; }
+    if (sim.results.eclipse) { st.eclipse = sim.results.eclipse.ok ? 'ok' : 'bad'; tx2.eclipse = sim.results.eclipse.ok ? 'SURVIVED' : 'BROWNOUT'; }
+    if (sim.phase === 'seu') { st.seu = 'act'; tx2.seu = 'ACTIVE'; }
+    if (sim.results.seu) { st.seu = sim.results.seu.ok ? 'ok' : 'bad'; tx2.seu = sim.results.seu.ok ? 'FIXED ' + sim.results.seu.time.toFixed(1) + 's' : 'TIMED OUT'; }
+    if (sim.phase === 'dsn') { st.dsn = 'act'; tx2.dsn = 'ACTIVE'; }
+    if (sim.results.dsn) { st.dsn = sim.results.dsn.cleared ? 'ok' : 'bad'; tx2.dsn = sim.results.dsn.cleared ? 'CLEARED' : 'DATA LEFT'; }
+    CRISIS.forEach(function (c) { setCls($('ct_' + c.id), 'ct ' + st[c.id]); $('cts_' + c.id).textContent = tx2[c.id]; });
+
+    // Emergency box: rewrite the DOM ONLY when its structure key changes; live numbers update in place.
+    var cb = crisisBoxText(sim), box = $('crisisBox');
+    setCls(box, cb[0]);
+    if (box.getAttribute('data-key') !== cb[2]) { box.innerHTML = cb[1]; box.setAttribute('data-key', cb[2]); }
+    updateCrisisDyn(sim);
+
     var crit = sim.phase === 'eclipse' ? 'eclipse' : sim.phase === 'seu' ? 'seu' : sim.phase === 'dsn' ? 'dsn' : '';
     if ($('opsPanel').getAttribute('data-crisis') !== crit) $('opsPanel').setAttribute('data-crisis', crit);
     if (OP.bannerT > 0) { OP.bannerT -= dt; if (OP.bannerT <= 0) $('crisisBanner').hidden = true; }
     // telemetry ping
-    if (active && t - OP.lastPing > 0.6) { OP.lastPing = t; S.telemetry(); }
-
-    // Update Flight Deck Console
-    var fb = $('rcsFuelBadge');
-    if (fb) fb.textContent = sim.phase === 'eclipse' ? 'BURST READY [SPACE]' : 'ONLINE';
-    var rcsBtn = $('btnConsoleRcsBurst');
-    if (rcsBtn) rcsBtn.classList.toggle('pulse-crisis', sim.phase === 'eclipse');
-
-    var nv = $('consoleNetVal');
-    if (nv) {
-      nv.textContent = (sim.net >= 0 ? '+' : '') + fmt(sim.net) + ' W';
-      nv.style.color = sim.net >= 0 ? 'var(--green)' : 'var(--amber)';
-    }
-    var pLed = $('pwrDeckLed');
-    if (pLed) pLed.className = 'mod-led ' + (sim.net >= 0 ? 'green' : 'amber-blink');
-
-    var swCam = $('swDeckCam'), swSci = $('swDeckSci'), swTx = $('swDeckTx'), swEco = $('swDeckEco');
-    if (swCam && b.instruments.length) swCam.classList.toggle('on', !!sim.inst[b.instruments[0].id]);
-    if (swSci && b.instruments.length > 1) swSci.classList.toggle('on', !!sim.inst[b.instruments[1].id]);
-    if (swTx) swTx.classList.toggle('on', !!sim.boost);
-    if (swEco) swEco.classList.toggle('eco-active', b.instruments.every(function (inst) { return !sim.inst[inst.id]; }));
-
-    renderDeckEmergency(sim);
+    updateDriftUI();
+    if (sim.phase === 'dsn' && sim.boost) OP.miniGames.radio.lockSeconds += dt;
 
     // Auto wake-up in sunrise
     if (sim.phase === 'nom1') {
@@ -947,6 +1049,7 @@
     var sim = OP.sim;
     OP.acc += dt;
     while (OP.acc >= 0.1) { OP.acc -= 0.1; E.step(sim, 0.1); }
+    updateDrift(dt);
     handleEvents(sim);
     updateOps(dt);
 
@@ -959,15 +1062,19 @@
         targetEl.style.left = activeAnom.x + 'px';
         targetEl.style.top = activeAnom.y + 'px';
         var tt = $('targetTitle'); if (tt) tt.textContent = activeAnom.title.toUpperCase();
+        var image = $('targetImage');
+        if (image && image.getAttribute('src') !== activeAnom.image) image.setAttribute('src', activeAnom.image);
+        if (image) image.alt = activeAnom.imageAlt;
       }
     } else {
       if (targetEl) targetEl.style.display = 'none';
     }
     var scoreVal = $('gameScoreVal'); if (scoreVal) scoreVal.textContent = Math.round(OP.score || 0);
-    var photoCount = $('photoCount'); if (photoCount) photoCount.textContent = OP.photos.length + '/3';
+    var photoCount = $('photoCount'); if (photoCount) photoCount.textContent = OP.photos.length + '/' + OP.anomalies.length;
 
     if (sim.done && OP.endT === null) { OP.endT = 0; $('opsFlash').className = 'flash end on'; S.alarmStop(); }
-    if (OP.endT !== null) { OP.endT += dt; if (OP.endT > 1.8) { var o = OP; OP = null; $('opsFlash').className = 'flash'; FLOW.startDebrief(o.sim); } }
+    // NOTE: the ops state (photos, arcade score) is handed to the debrief explicitly, because OP is nulled here.
+    if (OP.endT !== null) { OP.endT += dt; if (OP.endT > 1.8) { var o = OP; OP = null; $('opsFlash').className = 'flash'; FLOW.startDebrief(o.sim, o); } }
   };
 
   function opsAct(a) {
@@ -975,21 +1082,20 @@
     var sim = OP.sim;
     if (a.type === 'rcs') {
       OP.rcsT = 0.55;
+      if (OP.hasDrift) OP.drift = Math.max(0, OP.drift - DRIFT_RCS_CUT);
       if (sim.phase === 'eclipse') {
-        sim.phaseT += 2.8;
-        OP.score = (OP.score || 0) + 150;
         if (S.rcs) S.rcs(); else if (S.ignition) S.ignition();
-        OO.toast('RCS THRUSTERS FIRED! Exited planetary shadow faster! +150 PTS', 'good');
+        OO.toast('Thrusters fired.' + (OP.hasDrift ? ' Attitude stabilized.' : ''), 'good');
         var flash = $('opsFlash'); if (flash) { flash.className = 'flash on'; setTimeout(function () { flash.className = 'flash'; }, 200); }
       } else {
         if (S.rcs) S.rcs(); else if (S.beep) S.beep(520);
-        OO.toast('RCS Attitude Burst fired! Prograde orbit adjusted.', 'good');
+        OO.toast(OP.hasDrift ? 'RCS burst fired! Attitude stabilized: drift cut by ' + DRIFT_RCS_CUT + '%.' : 'RCS Attitude Burst fired! Prograde orbit adjusted.', 'good');
       }
       return;
     }
     // If computer is frozen, don't buzz error on innocent clicks, give clear advice
     if (!sim.computerOK && a.type !== 'reboot' && a.type !== 'backup') {
-      OO.toast('Computer is frozen! Tap the 4 glitch bits or follow Step 1 & 2.', 'warn');
+      OO.toast('Computer is frozen. Repeat the repair code before using controls.', 'warn');
       return;
     }
     var ok = E.act(sim, a);
@@ -997,91 +1103,161 @@
     handleEvents(sim);
   }
 
+  function tuneZone() {
+    return { left: TUNE_LO, right: TUNE_HI };
+  }
+  function syncTuneZone() {
+    if (!OP || OP.sim.phase !== 'dsn') return;
+    var zone = tuneZone(OP.sim.phaseT), inZone = OP.tuneVal >= zone.left && OP.tuneVal <= zone.right;
+    if (OP.sim.boost !== inZone) {
+      var ok = E.act(OP.sim, { type: 'boost', on: inZone });
+      if (ok && inZone && !OP.tuneAwarded) {
+        OP.tuneAwarded = true;
+        OP.score = (OP.score || 0) + 150;
+        OP.miniGames.radio.locks++;
+        if (S.combo) S.combo(2);
+      }
+    }
+  }
+  /  * Antenna tuner: boost engages while the thumb remains inside the green zone. */
+  function tuneInput(val) {
+    if (!OP) return;
+    OP.tuneVal = val;
+    syncTuneZone();
+    OP.sliderLock = !!OP.sim.boost;
+  }
   /* =====================================================================
    *  DEBRIEF
    * ===================================================================== */
   var TAGNAME = { solar: 'solar power', rtg: 'RTG nuclear power', dish: 'a high-gain dish', omni: 'a low-gain antenna', ka: 'Ka-band telecom', optical: 'optical imaging', msi: 'multispectral imaging', radar: 'ice-penetrating radar', maspex: 'a mass spectrometer', rideshare: 'rideshare launch', heavy: 'heavy-lift launch', super: 'super-heavy launch', smallsat: 'CubeSat-class size', flagship: 'flagship-class ambition', earthorbit: 'an Earth-orbit target', outer: 'an outer-planet target', battery: 'battery storage' };
   var RANK = {
-    'S': { col: '#fbbf24', head: 'FLAGSHIP-CLASS SUCCESS!', msg: 'Outstanding engineering and crisis management! A real NASA review board would fund your design.' },
-    'A': { col: '#34d399', head: 'MISSION ACCOMPLISHED!', msg: 'Strong spacecraft design! You survived all flight hazards and returned high-value science data to Earth.' },
-    'B': { col: '#22d3ee', head: 'PARTIAL MISSION SUCCESS', msg: 'Your probe survived and returned science, but faced power or data losses during flight.' },
-    'C': { col: '#f59e0b', head: 'MARGINAL FLIGHT', msg: 'Your probe limped through with major power or data damage. Tweak your components and try again!' },
-    'Mission Loss': { col: '#f87171', head: 'MISSION LOSS', msg: 'Severe emergencies prevented science return. Every real mission has lessons: study them and redesign!' }
+    'S': { col: '#fbbf24', head: 'OUTSTANDING MISSION!', msg: 'Your spacecraft collected and sent back science while handling the hazards.' },
+    'A': { col: '#34d399', head: 'MISSION SUCCESS!', msg: 'Your spacecraft reached its goal and returned useful science data.' },
+    'B': { col: '#22d3ee', head: 'PARTIAL SUCCESS', msg: 'Your spacecraft returned some science. The lessons below show where to improve.' },
+    'C': { col: '#f59e0b', head: 'MISSION NEEDS WORK', msg: 'Your spacecraft made it through the flight, but some systems need a redesign.' },
+    'Mission Loss': { col: '#f87171', head: 'MISSION INCOMPLETE', msg: 'Some science or safety goals were missed. Use the notes below to improve the next design.' }
   };
 
-  FLOW.startDebrief = function (sim) {
+  FLOW.startDebrief = function (sim, opState) {
     S.alarmStop(); S.rumbleStop();
-    var sc = E.score(sim), ids = OO.order.slice(), causes = E.causes(sim, sc, ids), match = E.match(OO.scn, ids), top = match[0];
+    // OP is already null when the ops loop hands off, so the ops state is passed in explicitly.
+    var ops = opState || OP;
+    var photos = (ops && ops.photos) ? ops.photos : [];
+    var flightScore = Math.round(ops ? (ops.score || 0) : 0);
+    var pilotRank = flightScore >= 4000
+      ? { code: 'S', title: 'EXPERT PILOT', cls: 'rank-s' }
+      : flightScore >= 2800
+      ? { code: 'A', title: 'STRONG PILOT', cls: 'rank-a' }
+      : flightScore >= 1600
+      ? { code: 'B', title: 'SPACE SPECIALIST', cls: 'rank-b' }
+      : { code: 'C', title: 'TRAINEE', cls: 'rank-c' };
+
+    // Photo bonus: every captured orbital anomaly adds 150 to the science total before scoring.
+    if (!sim._photoBonusApplied) {
+      sim.sci += photos.length * 150;
+      sim._photoBonusApplied = true;
+    }
+
+    var sc = E.score(sim), ids = OO.order.slice(), match = E.match(OO.scn, ids), top = match[0];
     var R = RANK[sc.rank], b = sim.b, scn = sim.scn;
     var mine = E.buildTags(OO.scn, ids), shared = top.mission.tags.filter(function (t) { return mine[t]; }).map(function (t) { return TAGNAME[t]; }).filter(Boolean).slice(0, 3);
     var prog = {}; ids.forEach(function (id) { prog[id] = 1; });
+    var totalTargets = (ops && ops.anomalies) ? ops.anomalies.length : 4;
+    var lessons = [
+      {
+        title: 'DARKNESS',
+        ok: !!(sim.results.eclipse && sim.results.eclipse.ok),
+        text: sim.results.eclipse && sim.results.eclipse.ok
+          ? 'Battery lasted until sunlight returned. Turning sensors off saves power in the dark.'
+          : 'Power ran out before sunrise. Next time, save battery as soon as the craft enters darkness.'
+      },
+      {
+        title: 'COMPUTER',
+        ok: !!(sim.results.seu && sim.results.seu.ok),
+        text: sim.results.seu && sim.results.seu.ok
+          ? 'You repaired the computer in ' + sim.results.seu.time.toFixed(1) + ' seconds. Radiation can flip a memory bit.'
+          : 'The repair timer ran out. Repeat the number code before the watchdog reset.'
+      },
+      {
+        title: 'RADIO',
+        ok: !!(sim.results.dsn && sim.results.dsn.cleared),
+        text: sim.results.dsn && sim.results.dsn.cleared
+          ? 'You sent the stored data to Earth before the radio window closed.'
+          : 'Some data stayed on the spacecraft. Move the knob into the green band and hold it there to send data.'
+      }
+    ];
 
     var h = '';
     h += '<div class="db-head"><div><div class="eyebrow mono">NASA MISSION EVALUATION REPORT &bull; ' + esc(scn.name.toUpperCase()) + '</div><h2>' + R.head + '</h2><p class="db-msg">' + R.msg + '</p></div>' +
-      '<div class="stamp-wrap"><div class="stamp" id="stamp" style="--c:' + R.col + '"><span class="mono">MISSION GRADE</span><b>' + (sc.rank === 'Mission Loss' ? 'LOSS' : 'RANK ' + sc.rank) + '</b></div></div></div>';
-    
+      '<div class="stamp-wrap"><div class="stamp" id="stamp" style="--c:' + R.col + '"><span class="mono">DESIGN GRADE</span><b' + (sc.rank === 'Mission Loss' ? ' class="loss"' : '') + '>' + (sc.rank === 'Mission Loss' ? 'LOSS' : sc.rank) + '</b></div></div></div>';
+
     h += '<div class="db-grid">';
-    
-    var photos = (OP && OP.photos) ? OP.photos : [];
-    var arcadeScore = (OP && OP.score) ? Math.round(OP.score) : ((LK && LK.score) ? Math.round(LK.score) : 0);
-    var pilotRank = arcadeScore >= 3500 ? 'ACE COMMANDER (S)' : arcadeScore >= 2000 ? 'EXPERT PILOT (A)' : arcadeScore >= 1000 ? 'SKILLED FLIGHT (B)' : 'CADET PILOT (C)';
 
     // Card 1: Scorecard
     h += '<section class="db-card scores"><h3 class="mono">MISSION SCORECARD</h3>' +
-      [['SCIENTIFIC DISCOVERIES', sc.yieldPct, 'Science data collected and successfully returned to Earth.'],
-       ['BUDGET & WEIGHT BALANCE', sc.eff, 'Efficiency of components per dollar and per kilogram.'],
-       ['SPACE HAZARDS SURVIVED', sc.surv, 'Survival across night shadows, cosmic rays, and radio cutoff.']].map(function (r, i) {
+      '<div class="score-grid">' +
+      [['SCIENCE DATA RETURNED', sc.yieldPct, 'How much science reached Earth.'],
+       ['BUILD EFFICIENCY', sc.eff, 'How well the design used its budget and weight.'],
+       ['HAZARD RESPONSE', sc.surv, 'How well the spacecraft handled each emergency.']].map(function (r, i) {
         var cl = r[1] >= 75 ? 'hi' : r[1] >= 45 ? 'mid' : 'lo';
         return '<div class="score"><div class="sl"><b class="mono">' + r[0] + '</b><span class="mono num" data-n="' + Math.round(r[1]) + '">0</span></div>' +
           '<div class="sbar"><div class="sfill ' + cl + '" data-w="' + r[1].toFixed(1) + '" style="transition-delay:' + (0.4 + i * 0.2) + 's"></div></div>' +
           '<p>' + r[2] + '</p></div>';
       }).join('') +
-      '<div class="overall mono">DESIGN SCORE: <b>' + Math.round(sc.overall) + '</b> / 100 &bull; ' + (sc.rank === 'Mission Loss' ? 'MISSION LOSS' : 'RANK ' + sc.rank) + '</div>' +
-      '<div class="overall mono" style="margin-top:6px; color:var(--cyan2)">PILOT ARCADE SCORE: <b style="color:var(--cyan)">' + arcadeScore + ' PTS</b> &bull; ' + pilotRank + ' &bull; PHOTOS: <b>' + photos.length + ' / 3</b></div></section>';
+      '</div>' +
+      '<div class="overall mono">DESIGN SCORE: <b>' + Math.round(sc.overall) + '</b> / 100 &bull; ' + (sc.rank === 'Mission Loss' ? 'MISSION LOSS' : 'DESIGN GRADE ' + sc.rank) + '</div>' +
+      '<div class="pilot-arcade-box">' +
+        '<div class="pilot-badge-row">' +
+          '<div class="pilot-score-val mono">PILOT FLIGHT SCORE: <b class="pilot-num mono" data-n="' + flightScore + '">0</b> PTS</div>' +
+          '<div class="pilot-rank-pill mono ' + pilotRank.cls + '">' + pilotRank.title + '</div>' +
+        '</div>' +
+        '<div class="pilot-stats-sub mono">' +
+          '<span>📸 Recon Discoveries: <b>' + photos.length + ' / ' + totalTargets + '</b></span>' +
+          '<span>⚡ Trajectory Staging: <b>CONFIRMED</b></span>' +
+        '</div>' +
+        '<div class="pilot-rank-note">Pilot title is separate; it uses flight points.</div>' +
+      '</div>' +
+      '</section>';
 
     // Card 2: NASA Spacecraft Match
-    h += '<section class="db-card real"><h3 class="mono">REAL NASA SPACECRAFT MATCH</h3>' +
+    h += '<section class="db-card real"><h3 class="mono">A REAL SPACECRAFT LIKE YOURS</h3>' +
       '<div class="hero-match"><div class="ring" style="--p:' + top.sim + '"><b class="mono">' + top.sim + '%</b><span>similar</span></div>' +
       '<div><div class="mono eyebrow">CLOSEST NASA TWIN</div><h4>' + esc(top.mission.name) + '</h4><div class="mono dim">' + esc(top.mission.agency) + '</div><p class="dim">' + esc(top.mission.short) + '</p></div></div>' +
-      (shared.length ? '<p class="shared">Your probe shares <b>' + shared.join('</b>, <b>') + '</b> with ' + esc(top.mission.name) + '.</p>' : '') +
-      '<ul class="facts">' + top.mission.facts.slice(0, 2).map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></section>';
+      (shared.length ? '<p class="shared">Like this mission, your craft uses <b>' + shared.join('</b>, <b>') + '</b>.</p>' : '') +
+      '</section>';
 
-    // Card 3: Key Takeaways
-    var topCauses = causes.slice(0, 4);
-    h += '<section class="db-card causes"><h3 class="mono">FLIGHT DEBRIEF &amp; TIPS</h3><ul class="cause-list">' +
-      topCauses.map(function (c) {
-        var ic = c.tone === 'good' ? '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' :
-                 c.tone === 'bad' ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' :
-                 '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
-        return '<li class="' + c.tone + '"><i>' + ic + '</i><span>' + esc(c.text) + '</span></li>';
+    // Hazard results
+    h += '<section class="db-card causes"><h3 class="mono">HAZARD DEBRIEF</h3><ul class="lesson-list">' +
+      lessons.map(function (lesson) {
+        return '<li class="' + (lesson.ok ? 'good' : 'warn') + '"><b>' + lesson.title + '</b><span>' + esc(lesson.text) + '</span></li>';
       }).join('') + '</ul></section>';
 
-    // Card 4: Scientific Discoveries Photo Album
-    h += '<section class="db-card photos" style="grid-column: 1 / -1;"><h3 class="mono"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> SCIENTIFIC PHOTO RECONNAISSANCE ALBUM (' + photos.length + ' / 3 DISCOVERIES)</h3>' +
+    // Captured reference images
+    h += '<section class="db-card discoveries"><h3 class="mono">' + ICON.cam + ' DISCOVERIES <span class="discovery-count">' +
+      photos.length + ' / ' + totalTargets + ' captured</span></h3>' +
       '<div class="photo-gallery-grid">' +
       (photos.length ? photos.map(function (p) {
         return '<div class="polaroid-card">' +
-          '<div class="polaroid-badge mono">DISCOVERY CONFIRMED &bull; +' + p.sciencePts + ' SCIENCE PTS</div>' +
+          '<div class="polaroid-badge mono">DISCOVERY &bull; +' + p.sciencePts + ' PTS</div>' +
+          '<img class="polaroid-image" src="' + esc(p.image) + '" alt="' + esc(p.imageAlt) + '" loading="lazy">' +
           '<div class="polaroid-title">' + esc(p.title) + '</div>' +
           '<div class="polaroid-desc">' + esc(p.desc) + '</div>' +
-          '<div class="polaroid-score mono">Captured by Spacecraft Recon Camera</div>' +
+          '<a class="polaroid-credit" href="' + esc(p.imageSource) + '" target="_blank" rel="noopener noreferrer">NASA reference image &bull; ' + esc(p.imageCredit) + '</a>' +
         '</div>';
-      }).join('') : '<div class="dim mono" style="padding:16px;">No discovery photos captured during this flight. While in orbit, keep your eyes on the planet: when an anomaly appears, press [SPACE] or click SNAP PHOTO to capture discoveries!</div>') +
+      }).join('') : '<div class="empty-discoveries">No photos captured this flight. Press SPACE when a discovery appears.</div>') +
       '</div></section>';
 
     h += '</div>';
 
     // Actions
     h += '<div class="db-actions">' +
-      '<button class="btn primary big pulse-btn" id="dbRetry"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> Redesign Spacecraft <small>Keep build and tweak</small></button>' +
+      '<button class="btn primary big pulse-btn" id="dbRetry"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> Redesign Spacecraft <small>Keep build and tweak</small></button>' +
       '<button class="btn ghost big" id="dbNew"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg> Choose New Mission</button>' +
       '<button class="btn ghost big" id="dbShare"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Copy My Score</button>' +
     '</div>';
 
-    h += '<footer class="db-foot"><div class="globe mono"><svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24" style="width:36px;height:36px;"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><path d="M5 5l2.5 2.5m9 9L19 19M19 5l-2.5 2.5m-9 9L5 19"/></svg></div><div><b>Great flight!</b> In real space exploration, every choice balances power, weight, and communications. Orbital Odyssey NASA Space Apps 2026.</div></footer>';
-    
     $('debrief').innerHTML = h;
-    OO.result = { sim: sim, sc: sc, top: top };
+    OO.result = { sim: sim, sc: sc, top: top, flightScore: flightScore, pilotRank: pilotRank.title, photos: photos.length };
     OO.show('debrief');
 
     // animate
@@ -1090,6 +1266,10 @@
       qa('#debrief .num').forEach(function (el, i) {
         var to = +el.getAttribute('data-n'), t0 = performance.now() + 400 + i * 200;
         (function step(now) { var p = clamp((now - t0) / 800, 0, 1); el.textContent = Math.round(to * p); if (p < 1) requestAnimationFrame(step); })(performance.now());
+      });
+      qa('#debrief .pilot-num').forEach(function (el) {
+        var to = +el.getAttribute('data-n'), t0 = performance.now() + 500;
+        (function step(now) { var p = clamp((now - t0) / 900, 0, 1); el.textContent = commas(Math.round(to * p)); if (p < 1) requestAnimationFrame(step); })(performance.now());
       });
     }, 60);
     setTimeout(function () {
@@ -1102,10 +1282,7 @@
     LK.staged = true;
     LK.stageReady = false;
     LK.sepAge0 = Math.max(0, LK.t - 3);
-    LK.score = (LK.score || 0) + 500;
-    if (S.combo) S.combo(3);
     if (S.good) S.good();
-    OO.toast('PERFECT BOOSTER SEPARATION! +500 PTS!', 'good');
     $('launchCall').textContent = 'BOOSTER JETTISON CONFIRMED! Upper stage engine firing to orbit.';
     $('launchCall').className = 'call mono good';
     var bStage = $('btnManualStage');
@@ -1116,6 +1293,14 @@
       boom.style.display = '';
       setTimeout(function () { if (boom) boom.style.display = 'none'; }, 400);
     }
+  }
+
+  /* Shared handler for the small set of Stage 5 control actions. */
+  function handleActButton(act) {
+    if (!OP) return;
+    if (act === 'eclipse-hit') tapEclipse();
+    else if (act === 'allOff') { opsAct({ type: 'allInst', on: false }); OO.toast('Sensors off to save battery.', 'warn'); }
+    else if (act === 'rcs') opsAct({ type: 'rcs' });
   }
 
   /* =====================================================================
@@ -1157,22 +1342,22 @@
         if (LK) { LK.steerInput = -1; e.preventDefault(); }
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         if (LK) { LK.steerInput = 1; e.preventDefault(); }
+      } else if ((e.key === 'r' || e.key === 'R') && OP && !OP.paused && !OP.sim.done) {
+        opsAct({ type: 'rcs' });
+        e.preventDefault();
+      } else if (OP && OP.sim.phase === 'seu' && /^[1-4]$/.test(e.key)) {
+        tapRepairPad(+e.key - 1);
+        e.preventDefault();
       } else if (e.key === ' ' || e.code === 'Space') {
         if (LK && LK.stageReady && !LK.staged) {
           triggerStageSeparation();
           e.preventDefault();
         } else if (OP) {
           var sim = OP.sim;
-          var a = OP.anomalies.find(function (an) { return !an.captured && sim.t >= an.t && sim.t < an.t + an.dur; });
-          if (a) {
-            FLOW.snapPhoto();
-          } else if (sim.phase === 'eclipse') {
-            opsAct({ type: 'rcs' });
-          } else if (sim.phase === 'seu') {
-            var unpurged = [0, 1, 2, 3].find(function (i) { return !OP.purgedBits[i]; });
-            if (unpurged !== undefined) purgeBit(unpurged);
-          } else if (sim.phase === 'dsn' && !sim.boost) {
-            opsAct({ type: 'boost', on: true });
+          if (sim.phase === 'eclipse') {
+            tapEclipse();
+          } else if (OP.hasDrift && OP.drift >= DRIFT_LOCK) {
+            opsAct({ type: 'rcs' }); // unstable attitude: SPACE stabilizes first, then photograph
           } else {
             FLOW.snapPhoto();
           }
@@ -1195,118 +1380,22 @@
 
     // Operations Panel clicks (Emergency Actions & Mini-Games)
     $('opsPanel').addEventListener('click', function (e) {
-      var bitBtn = e.target.closest('[data-purge-bit]');
-      if (bitBtn && OP) {
-        purgeBit(+bitBtn.getAttribute('data-purge-bit'));
+      var pad = e.target.closest('[data-repair-pad]');
+      if (pad && OP) {
+        tapRepairPad(+pad.getAttribute('data-repair-pad'));
         return;
       }
 
       var el = e.target.closest('button'); if (!el) return;
       if (el.hasAttribute('data-inst')) { var id = el.getAttribute('data-inst'); opsAct({ type: 'inst', id: id, on: !OP.sim.inst[id] }); }
       else if (el.hasAttribute('data-th')) opsAct({ type: 'throttle', v: +el.getAttribute('data-th') });
-      else {
-        var act = el.getAttribute('data-act');
-        if (act === 'allOff') { opsAct({ type: 'allInst', on: false }); OO.toast('Instruments put to sleep. Battery drain minimized.', 'warn'); }
-        else if (act === 'allOn') { opsAct({ type: 'allInst', on: true }); OO.toast('Instruments awake and harvesting science!', 'good'); }
-        else if (act === 'boost') { opsAct({ type: 'boost', on: !OP.sim.boost }); if (OP.sim.boost) OO.toast('Transmit Boost ON (+50% speed)!', 'good'); }
-        else if (act === 'backup') {
-          opsAct({ type: 'backup', on: true });
-          if (S.good) S.good();
-          OO.toast('Step 1 Complete: Backup line routed! Now click Step 2 to reboot.', 'good');
-        }
-        else if (act === 'reboot') {
-          var ok = E.act(OP.sim, { type: 'reboot' });
-          if (ok) { S.reboot(); OO.toast('Reboot sequence initiated! Please wait 3 seconds...', 'warn'); }
-          else S.error();
-          handleEvents(OP.sim);
-        }
-        else if (act === 'rcs') opsAct({ type: 'rcs' });
-      }
+      else handleActButton(el.getAttribute('data-act'));
     });
 
-    // Antenna Slider Input
+    // Antenna Slider Input (lock window: TUNE_LO..TUNE_HI)
     $('opsPanel').addEventListener('input', function (e) {
-      if (e.target.id === 'antennaSlider' && OP) {
-        var val = +e.target.value;
-        if (val >= 65 && !OP.sim.boost) {
-          opsAct({ type: 'boost', on: true });
-          if (S.combo) S.combo(2);
-          OO.toast('ANTENNA LOCKED TO EARTH BEAM! Max speed downlink active! +150 PTS', 'good');
-        }
-      }
+      if (e.target.id === 'antennaSlider' && OP) tuneInput(+e.target.value);
     });
-
-    // Flight Deck Console Controls & Tactile Mini-Games
-    var deck = $('flightDeckConsole');
-    if (deck) {
-      deck.addEventListener('click', function (e) {
-        var bitBtn = e.target.closest('[data-purge-bit]');
-        if (bitBtn && OP) {
-          purgeBit(+bitBtn.getAttribute('data-purge-bit'));
-          return;
-        }
-
-        var btnRcs = e.target.closest('#btnConsoleRcsBurst');
-        if (btnRcs && OP) { opsAct({ type: 'rcs' }); return; }
-
-        var swCam = e.target.closest('#swDeckCam');
-        if (swCam && OP && OP.sim.b.instruments.length) {
-          var i0 = OP.sim.b.instruments[0].id;
-          opsAct({ type: 'inst', id: i0, on: !OP.sim.inst[i0] });
-          return;
-        }
-        var swSci = e.target.closest('#swDeckSci');
-        if (swSci && OP && OP.sim.b.instruments.length > 1) {
-          var i1 = OP.sim.b.instruments[1].id;
-          opsAct({ type: 'inst', id: i1, on: !OP.sim.inst[i1] });
-          return;
-        }
-        var swTx = e.target.closest('#swDeckTx');
-        if (swTx && OP) {
-          opsAct({ type: 'boost', on: !OP.sim.boost });
-          return;
-        }
-        var swEco = e.target.closest('#swDeckEco');
-        if (swEco && OP) {
-          var anyOn = OP.sim.b.instruments.some(function (i) { return OP.sim.inst[i.id]; });
-          opsAct({ type: 'allInst', on: !anyOn });
-          return;
-        }
-        var btnSnap = e.target.closest('#btnDeckSnap');
-        if (btnSnap) { FLOW.snapPhoto(); return; }
-
-        var actBtn = e.target.closest('[data-act]');
-        if (actBtn && OP) {
-          var act = actBtn.getAttribute('data-act');
-          if (act === 'allOff') opsAct({ type: 'allInst', on: false });
-          else if (act === 'allOn') opsAct({ type: 'allInst', on: true });
-          else if (act === 'boost') opsAct({ type: 'boost', on: !OP.sim.boost });
-          else if (act === 'backup') {
-            opsAct({ type: 'backup', on: true });
-            if (S.good) S.good();
-            OO.toast('Step 1 Complete: Backup power routed! Now reboot.', 'good');
-          }
-          else if (act === 'reboot') {
-            var ok = E.act(OP.sim, { type: 'reboot' });
-            if (ok) { S.reboot(); OO.toast('Reboot sequence initiated! Please wait 3 seconds...', 'warn'); }
-            else S.error();
-            handleEvents(OP.sim);
-          }
-          else if (act === 'rcs') opsAct({ type: 'rcs' });
-        }
-      });
-
-      deck.addEventListener('input', function (e) {
-        if (e.target.id === 'deckAntennaSlider' && OP) {
-          var val = +e.target.value;
-          if (val >= 65 && !OP.sim.boost) {
-            opsAct({ type: 'boost', on: true });
-            if (S.combo) S.combo(2);
-            OO.toast('ANTENNA LOCKED TO EARTH BEAM! Max speed downlink active! +150 PTS', 'good');
-          }
-        }
-      });
-    }
 
     $('debrief').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return; S.click();
@@ -1314,7 +1403,7 @@
       else if (b.id === 'dbSame') { OO.enterConfig(true); setTimeout(function () { FLOW.startLaunch(); }, 0); }
       else if (b.id === 'dbNew') { OO.resetBuild(); OO.show('level'); }
       else if (b.id === 'dbShare' && OO.result) {
-        var r = OO.result, txt = 'I flew ' + r.sim.scn.name + ' in Orbital Odyssey and earned ' + (r.sc.rank === 'Mission Loss' ? 'a Mission Loss' : 'rank ' + r.sc.rank) + ' (' + Math.round(r.sc.overall) + '/100). My probe is ' + r.top.sim + '% like ' + r.top.mission.name + '! #NASASpaceApps';
+        var r = OO.result, txt = 'I flew ' + r.sim.scn.name + ' in Orbital Odyssey! Design Score: ' + Math.round(r.sc.overall) + '/100 (' + (r.sc.rank === 'Mission Loss' ? 'Loss' : 'Rank ' + r.sc.rank) + '), Flight Score: ' + commas(r.flightScore || 0) + ' PTS (' + (r.pilotRank || 'Pilot') + '). My probe is ' + r.top.sim + '% like ' + r.top.mission.name + '! #NASASpaceApps';
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { OO.toast('Result copied to clipboard.', 'good'); }, function () { OO.toast(txt); });
         else OO.toast(txt);
       }

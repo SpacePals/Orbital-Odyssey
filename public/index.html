@@ -75,6 +75,11 @@
           </button>
         </div>
       </div>
+      <div class="menu-partner-logos" aria-label="Project logos">
+        <img src="logos/Main_Logo_0544XEn.width-500.jpg" alt="Bahrain Polytechnic">
+        <img src="logos/Copy_of_Space_Apps_Logo_Color_and_Black_ZqvBwG.width-500.png" alt="NASA Space Apps">
+        <img src="logos/BAHRAIN_SPACE_AGENCY.width-500.png" alt="Bahrain Space Agency">
+      </div>
     </section>
 
     <!-- ================= 2. LEVEL SELECTION SCREEN ================= -->
@@ -93,7 +98,7 @@
 
         <div class="cta-row">
           <button class="btn primary big pulse-btn" id="btnStartLevel">
-            <svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> ENTER WORKSHOP &rarr; <small>Start Designing Your Ship</small>
+            <svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> ENTER WORKSHOP &rarr; <small>Start Designing Your Ship</small>
           </button>
         </div>
       </div>
@@ -134,7 +139,6 @@
           </svg>
           <div class="stage-tag mono tl">SPACECRAFT WORKSHOP &bull; <span id="stageScn"></span></div>
           <div class="stage-tag mono tr"><span class="dot"></span> ASSEMBLY ACTIVE</div>
-          <div class="stage-tag mono bl">Tip: Drag to rotate ship &bull; Hover card to preview &bull; Click to equip</div>
           <div class="stage-ctl">
             <label class="chk"><input type="checkbox" id="chkLabels" checked> Labels</label>
             <label class="chk"><input type="checkbox" id="chkSpin" checked> Auto-rotate</label>
@@ -154,7 +158,7 @@
           <div id="bom" class="bom"></div>
 
           <div class="launch-box">
-            <button class="btn launch" id="btnLaunch"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> LAUNCH MISSION</button>
+            <button class="btn launch" id="btnLaunch"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> LAUNCH MISSION</button>
             <button class="btn ghost small" id="btnBackToLevel">&larr; Back to Mission Select</button>
           </div>
         </aside>
@@ -180,7 +184,7 @@
             <div class="corridor-gauge" title="Keep the rocket in the green trajectory corridor">
               <span class="corridor-lbl mono">FLIGHT VECTOR</span>
               <div class="corridor-track">
-                <div class="corridor-zone"></div>
+                <div class="corridor-zone" id="corridorZone"></div>
                 <div class="corridor-pointer" id="corridorPointer"></div>
               </div>
             </div>
@@ -226,7 +230,7 @@
             <svg id="opsSvg" viewBox="0 0 760 470" aria-label="Orbital view"></svg>
             <div class="ops-clock mono" id="opsClock">MET 00:00</div>
             <div class="ops-score-pill mono" id="opsScorePill">SCORE: <b id="gameScoreVal">0</b> &bull; PHOTOS: <b id="photoCount">0/3</b></div>
-            <button class="btn ghost small ops-guide-trigger-btn" id="btnOpsGuide" title="Open Stage 5 Flight Guide"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Flight Guide</button>
+            <button class="btn ghost small ops-guide-trigger-btn" id="btnOpsGuide" title="View the three flight challenges"><svg class="btn-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Rules</button>
             <div id="crisisBanner" class="crisis-banner" hidden></div>
             <div class="ops-orbit-tag mono" id="opsOrbitTag"></div>
             <div id="opsFlash" class="flash"></div>
@@ -236,6 +240,7 @@
               <div class="target-crosshair"></div>
               <div class="target-info">
                 <span class="target-badge mono">DISCOVERY IN RANGE</span>
+                <img id="targetImage" class="target-image" alt="">
                 <b class="target-title" id="targetTitle">AURORA BOREALIS</b>
                 <button class="btn primary small snap-btn pulse-btn" id="btnSnapPhoto">
                   <svg class="btn-svg" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> SNAP PHOTO [SPACE]
@@ -246,58 +251,6 @@
             <div id="discoveryCard" class="discovery-card" hidden></div>
           </div>
 
-          <!-- Tactile Spacecraft Flight Deck Console -->
-          <div class="flight-deck-console" id="flightDeckConsole">
-            <!-- Station 1: Propulsion & Thruster Controls -->
-            <div class="console-box rcs-station">
-              <div class="console-head mono">
-                <span class="mod-led active"></span>
-                <span>RCS PROPULSION</span>
-                <b id="rcsFuelBadge" class="fuel-badge">READY</b>
-              </div>
-              <div class="rcs-actions-deck">
-                <button class="rcs-fire-btn pulse-crisis" id="btnConsoleRcsBurst" title="Fire RCS Thruster Burst (SPACE)">
-                  <svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  <div class="btn-label-group">
-                    <b>FIRE RCS BURST [SPACE]</b>
-                    <small>-2.8s IN SHADOW &bull; +150 PTS</small>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <!-- Station 2: Power Matrix -->
-            <div class="console-box power-station">
-              <div class="console-head mono">
-                <span class="mod-led active" id="pwrDeckLed"></span>
-                <span>POWER MATRIX</span>
-                <b id="consoleNetVal" class="mono" style="color:var(--green)">+25 W</b>
-              </div>
-              <div class="pwr-switches-deck">
-                <button class="console-sw on" id="swDeckCam" data-deck-act="instCam" title="Toggle Cameras">
-                  <span class="sw-bulb"></span>
-                  <span class="mono">CAMERAS</span>
-                </button>
-                <button class="console-sw on" id="swDeckSci" data-deck-act="instSci" title="Toggle Sensors">
-                  <span class="sw-bulb"></span>
-                  <span class="mono">SENSORS</span>
-                </button>
-                <button class="console-sw on" id="swDeckTx" data-deck-act="txBoost" title="Toggle Radio Boost">
-                  <span class="sw-bulb"></span>
-                  <span class="mono">TX BOOST</span>
-                </button>
-                <button class="console-sw" id="swDeckEco" data-deck-act="ecoSleep" title="Toggle Power Saving Sleep">
-                  <span class="sw-bulb amber"></span>
-                  <span class="mono">ECO SLEEP</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Station 3: Tactical Emergency Module -->
-            <div class="console-box emergency-station" id="consoleEmergencyStation">
-              <div id="deckEmergencyContent"></div>
-            </div>
-          </div>
         </div>
         <aside id="opsPanel" class="panel ops-panel" aria-label="Spacecraft control panel"></aside>
       </div>
@@ -318,18 +271,55 @@
         <button class="tut-close-btn" id="btnSettingsX" aria-label="Close Settings">&times;</button>
       </div>
       <div class="modal-body settings-body">
+        <!-- 1. Master Volume -->
         <div class="setting-row">
           <div>
-            <b>Game Audio &amp; Sound FX</b>
-            <p class="dim">Adjust synthesizer sound effects, rocket rumbles, and flight alarms.</p>
+            <b>Master Volume</b>
+            <p class="dim">Overall volume for all music, thrusters, and sound effects.</p>
           </div>
           <div class="volume-slider-box">
-            <button class="btn ghost small vol-mute-btn" id="btnVolMute" title="Mute/Unmute"><svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
-            <input type="range" id="volSlider" min="0" max="100" value="70" class="volume-slider" aria-label="Game Volume">
-            <span class="mono vol-val" id="volVal">70%</span>
+            <button class="btn ghost small vol-mute-btn" id="btnVolMute" title="Mute/Unmute audio">
+              <svg class="btn-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            </button>
+            <input type="range" id="volMasterSlider" min="0" max="100" value="70" class="volume-slider" aria-label="Master Volume">
+            <input type="range" id="volSlider" min="0" max="100" value="70" class="volume-slider" style="display:none;" aria-hidden="true">
+            <span class="mono vol-val" id="volMasterVal">70%</span>
+            <span class="mono vol-val" id="volVal" style="display:none;">70%</span>
           </div>
         </div>
 
+        <!-- 2. Background Music Volume & Playlist -->
+        <div class="setting-row setting-row-music">
+          <div>
+            <b>Background Music</b>
+            <p class="dim">The only background track: Into the Beyond.</p>
+            <div class="music-now-playing" id="musicNowPlaying">
+              <span class="music-note-icon">🎵</span>
+              <span class="mono music-track-title" id="musicTrackTitle">Track 1: Into the Beyond</span>
+            </div>
+          </div>
+          <div class="volume-slider-box">
+            <input type="range" id="volMusicSlider" min="0" max="100" value="60" class="volume-slider" aria-label="Music Volume">
+            <span class="mono vol-val" id="volMusicVal">60%</span>
+          </div>
+        </div>
+
+        <!-- 3. Sound Effects (SFX) Volume -->
+        <div class="setting-row">
+          <div>
+            <b>Sound Effects (SFX)</b>
+            <p class="dim">Rocket engine rumble, telemetry beeps, clicks, and flight alarms.</p>
+          </div>
+          <div class="volume-slider-box">
+            <button class="btn ghost small sfx-test-btn" id="btnSfxTest" title="Play test sound effect">
+              <svg class="btn-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Test
+            </button>
+            <input type="range" id="volSfxSlider" min="0" max="100" value="80" class="volume-slider" aria-label="SFX Volume">
+            <span class="mono vol-val" id="volSfxVal">80%</span>
+          </div>
+        </div>
+
+        <!-- Interactive Tutorial -->
         <div class="setting-row">
           <div>
             <b>Interactive Tutorial</b>
@@ -351,13 +341,13 @@
   <div id="tutorialModal" class="modal tutorial-modal" hidden>
     <div class="modal-card tut-card" role="dialog" aria-modal="true" aria-labelledby="tutTitle">
       <div class="tut-head">
-        <div class="tut-step-badge mono" id="tutStepBadge">STEP 1 OF 6</div>
+        <div class="tut-step-badge mono" id="tutStepBadge">STEP 1 OF 7</div>
         <button class="tut-close-btn" id="btnTutSkip" aria-label="Skip Tutorial">&times; Skip</button>
       </div>
       <div class="tut-body">
         <div class="tut-icon-wrap" id="tutIcon"><svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg></div>
         <h2 id="tutTitle">Welcome, Flight Commander!</h2>
-        <p id="tutDesc">You are about to design and fly a real NASA-inspired spacecraft. Let's do a quick 6-step walkthrough to ensure your mission is a success!</p>
+        <p id="tutDesc">You are about to design and fly a real NASA-inspired spacecraft. Let's do a quick 7-step walkthrough to ensure your mission is a success!</p>
         <div class="tut-visual" id="tutVisual"></div>
       </div>
       <div class="tut-foot">
@@ -378,56 +368,16 @@
         <button class="tut-close-btn" id="btnOpsTutSkip" aria-label="Close Guide">&times; Close</button>
       </div>
       <div class="tut-body ops-guide-body">
-        <div class="tut-icon-wrap"><svg class="btn-svg" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg></div>
-        <h2 id="opsTutTitle">Live Deep-Space Operations!</h2>
-        <p>Your probe is now orbiting in space. Cruise freely while systems are green, but respond quickly to <b>3 space emergencies</b>:</p>
-        <div class="ops-guide-grid">
-          <div class="ops-guide-card">
-            <div class="guide-num">1</div>
-            <div class="guide-content">
-              <div class="guide-card-head">
-                <b>Night Shadow (Eclipse)</b>
-                <span class="guide-badge-alert">Emergency 1</span>
-              </div>
-              <p>Solar panels produce 0 W in the dark. Keep your battery alive until sunrise:</p>
-              <div class="guide-steps-flow">
-                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Click "Sleep Instruments" (Auto-wakes at sunrise!)</span>
-              </div>
-            </div>
-          </div>
-          <div class="ops-guide-card active-guide-card">
-            <div class="guide-num">2</div>
-            <div class="guide-content">
-              <div class="guide-card-head">
-                <b>Cosmic Ray Glitch</b>
-                <span class="guide-badge-alert">Emergency 2</span>
-              </div>
-              <p>Radiation freezes flight computer. Two easy ways to restore it:</p>
-              <div class="guide-steps-flow">
-                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> <b>Method 1:</b> Tap 4 flashing RAM chips</span>
-                <span class="mono dim" style="font-size:10px;">- OR -</span>
-                <span class="guide-step-pill"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M12 2v6M9 2v4M15 2v4M6 8h12v4a6 6 0 0 1-6 6v4"/></svg> <b>Method 2:</b> Route Backup &rarr; Reboot</span>
-              </div>
-            </div>
-          </div>
-          <div class="ops-guide-card">
-            <div class="guide-num">3</div>
-            <div class="guide-content">
-              <div class="guide-card-head">
-                <b>Radio Window Closing</b>
-                <span class="guide-badge-alert">Emergency 3</span>
-              </div>
-              <p>Earth contact window is closing. Downlink stored telemetry:</p>
-              <div class="guide-steps-flow">
-                <span class="guide-step-pill action"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V4"/><polyline points="13 8 17 4 21 8"/></svg> Click "Activate Boost" (+50% speed)</span>
-              </div>
-            </div>
-          </div>
+        <div class="tut-icon-wrap"><svg class="btn-svg" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg></div>
+        <h2 id="opsTutTitle">Three quick challenges</h2>
+        <div class="ops-quick-rules">
+          <p><b>Darkness:</b> hit the green mark to save battery.</p>
+          <p><b>Computer glitch:</b> repeat the 5-number code.</p>
+          <p><b>Radio:</b> move the knob into green and hold it there to send data.</p>
         </div>
       </div>
       <div class="tut-foot">
-        <div class="mono dim" style="font-size:11.5px">Tip: Re-open anytime via the top-right button!</div>
-        <button class="btn primary big" id="btnOpsTutStart"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/></svg> Start Flight &rarr;</button>
+        <button class="btn primary big" id="btnOpsTutStart"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> Start Flight &rarr;</button>
       </div>
     </div>
   </div>

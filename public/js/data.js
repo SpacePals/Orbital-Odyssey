@@ -13,7 +13,7 @@
       radiation: 'LOW', radLevel: 1, lightTime: '< 0.01 s', dest: 'leo', destName: 'Earth Orbit',
       shadowName: "Earth's shadow", lightMin: 0,
       bus: { name: 'Compact CubeSat Frame', mass: 14, load: 5, cost: 2.0, source: 'NASA CSLI Heritage' },
-      heater: 6, hoursPerSec: 0.03, bufferCap: 20000, benchmark: 140,
+      heater: 9, thermalSun: 0, hoursPerSec: 0.03, bufferCap: 20000, benchmark: 95,
       seuWindow: 16, backupLoad: 4, rebootSurge: 10, dsnName: 'Wallops ground station',
       objective: 'Build an Earth satellite to take photos, survive night shadows, and beam data home.',
       feasibility: [
@@ -30,8 +30,8 @@
       radiation: 'EXTREME', radLevel: 5, lightTime: '35\u201352 min', dest: 'europa', destName: 'Jupiter transfer',
       shadowName: "Jupiter's shadow", lightMin: 43,
       bus: { name: 'Flagship Deep-Space Bus', mass: 180, load: 100, cost: 38, source: 'NASA Europa Clipper' },
-      heater: 45, hoursPerSec: 0.09, bufferCap: 600, benchmark: 150,
-      seuWindow: 12, backupLoad: 25, rebootSurge: 70, dsnName: 'Deep Space Network (Goldstone \u2192 Canberra)',
+      heater: 58, thermalSun: 0.15, hoursPerSec: 0.09, bufferCap: 600, benchmark: 105,
+      seuWindow: 10, backupLoad: 25, rebootSurge: 70, dsnName: 'Deep Space Network (Goldstone \u2192 Canberra)',
       objective: 'Fly to Jupiter’s icy ocean moon, survive intense radiation, and hunt for signs of life.',
       feasibility: [
         ['Sunlight Level', '3.7% (Very Dim)', 'Sunlight is very weak at Jupiter. Solar panels produce little power.'],
@@ -62,7 +62,7 @@
       source: { leo: 'Source: NASA CSLI optical payload heritage', europa: 'Source: NASA Europa Imaging System (EIS)' },
       stats: {
         leo: { mass: 1.2, cost: 0.8, draw: 3, data: 300, sci: 20 },
-        europa: { mass: 8, cost: 4, draw: 12, data: 12, sci: 15 }
+        europa: { mass: 8, cost: 4, draw: 12, data: 16, sci: 15 }
       }
     },
     {
@@ -75,7 +75,7 @@
       source: { leo: 'Source: NASA Landsat / Earth-imaging heritage', europa: 'Source: NASA Europa Clipper MISE Spectrometer' },
       stats: {
         leo: { mass: 4.5, cost: 3.5, draw: 9, data: 900, sci: 55 },
-        europa: { mass: 35, cost: 18, draw: 40, data: 45, sci: 45 }
+        europa: { mass: 35, cost: 18, draw: 40, data: 58, sci: 45 }
       }
     },
     {
@@ -88,7 +88,7 @@
       source: { leo: 'Source: NASA JPL RainCube radar heritage', europa: 'Source: NASA Europa Clipper REASON Ice Radar' },
       stats: {
         leo: { mass: 14, cost: 9, draw: 28, data: 1400, sci: 85 },
-        europa: { mass: 90, cost: 45, draw: 100, data: 120, sci: 90 }
+        europa: { mass: 90, cost: 45, draw: 100, data: 156, sci: 90 }
       }
     },
     {
@@ -101,7 +101,7 @@
       source: { leo: 'Source: NASA MAVEN miniature sensor heritage', europa: 'Source: NASA Europa Clipper MASPEX Spectrometer' },
       stats: {
         leo: { mass: 3, cost: 2.5, draw: 6, data: 120, sci: 25 },
-        europa: { mass: 40, cost: 28, draw: 35, data: 30, sci: 85 }
+        europa: { mass: 40, cost: 28, draw: 35, data: 40, sci: 85 }
       }
     },
 

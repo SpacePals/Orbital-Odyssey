@@ -34,7 +34,8 @@
     var transit = L ? L.transit : 0;
     var solarDeg = 1 - 0.02 * transit, rtgDeg = 1 - 0.015 * transit;
     var mass = scn.bus.mass, cost = scn.bus.cost, genSolar = 0, genRTG = 0;
-    var load = scn.bus.load, dataRaw = 0, sci = 0, battWh = 0, bwBase = 0, telDraw = 0, instDraw = 0;
+    var sunHeat = scn.heater * (scn.thermalSun || 0);
+    var load = scn.bus.load + sunHeat, dataRaw = 0, sci = 0, battWh = 0, bwBase = 0, telDraw = 0, instDraw = 0;
     var antenna = null, ka = false, instruments = [];
     items.forEach(function (c) {
       st = c.stats[scnId];
@@ -53,7 +54,7 @@
     var gen = genSolar + genRTG;
     var net = gen - load;
     var eclipseHours = scn.hoursPerSec * ECLIPSE_SEC;
-    var eclipseNeedWh = Math.max(0, load + scn.heater - genRTG) * eclipseHours;
+    var eclipseNeedWh = Math.max(0, load - sunHeat + scn.heater - genRTG) * eclipseHours;
     var eclipseCovered = eclipseNeedWh <= 0 || battWh >= eclipseNeedWh;
     var payload = mass;
     var lm = launchModel(booster, scnId, payload);
@@ -61,7 +62,7 @@
     var b = {
       scnId: scnId, scn: scn, items: items, has: has, booster: booster, launch: lm, instruments: instruments,
       mass: mass, cost: cost, budgetLeft: scn.budget - cost, massCap: scn.massCap, boosterCap: capacity,
-      genSolar: genSolar, genRTG: genRTG, gen: gen, load: load, net: net, instDraw: instDraw, telDraw: telDraw,
+      genSolar: genSolar, genRTG: genRTG, gen: gen, load: load, sunHeat: sunHeat, net: net, instDraw: instDraw, telDraw: telDraw,
       dataRaw: dataRaw, data: data, compression: compression, bw: bw, battWh: battWh, hasKa: ka, antenna: antenna,
       sci: sci, transit: transit, solarDeg: solarDeg, rtgDeg: rtgDeg, eclipseHours: eclipseHours,
       eclipseNeedWh: eclipseNeedWh, eclipseCovered: eclipseCovered
@@ -85,7 +86,7 @@
     if (b.budgetLeft < 0) w.push({ id: 'budget', level: 'crit', title: 'OVER BUDGET',
       text: 'Total cost is $' + r1(b.cost) + 'M against your $' + scn.budget + 'M budget (over by $' + r1(-b.budgetLeft) + 'M).' });
     if (!b.eclipseCovered && b.net >= 0) w.push({ id: 'eclipse', level: 'warn', title: 'NIGHT SHADOW RISK',
-      text: b.battWh <= 0 && b.genRTG < b.load + scn.heater ? 'No battery or nuclear generator! The spacecraft will completely shut down when flying behind the planet.' : 'Battery holds ' + Math.round(b.battWh) + ' Wh, but night-time needs about ' + Math.round(b.eclipseNeedWh) + ' Wh. You will need to turn off hungry instruments.' });
+      text: b.battWh <= 0 && b.genRTG < b.load - b.sunHeat + scn.heater ? 'No battery or nuclear generator! The spacecraft will completely shut down when flying behind the planet.' : 'Battery holds ' + Math.round(b.battWh) + ' Wh, but night-time needs about ' + Math.round(b.eclipseNeedWh) + ' Wh. You will need to turn off hungry instruments.' });
     if (b.hasKa && !b.antenna) w.push({ id: 'kanoant', level: 'warn', title: 'RADIO BOOSTER NEEDS ANTENNA', text: 'The Ka-band booster needs a primary antenna to transmit through.' });
     if (!b.antenna && b.instruments.length) w.push({ id: 'noant', level: 'crit', title: 'NO RADIO ANTENNA', text: 'Without an antenna, photos and science data can never be sent back to Earth!' });
     if (!b.booster) w.push({ id: 'nobooster', level: 'warn', title: 'NO ROCKET SELECTED', text: 'Select a launch vehicle on the Rocket tab.' });
@@ -139,7 +140,7 @@
       brown: false, brownRec: 0, brownCount: 0, collapseT: 0,
       sci: 0, elapsed: 0, ov: false, ovSec: 0, ovEvents: 0, throttleSec: 0, offSec: 0, faultSec: 0,
       pen: [], events: [], pending: [], results: { eclipse: null, seu: null, dsn: null },
-      seu: null, seuFails: 0, eclBrown: false, dsnPeak: 0, radDose: 0, timeline: { start: 0 }
+      seu: null, seuFails: 0, eclBrown: false, eclProtected: false, dsnPeak: 0, radDose: 0, timeline: { start: 0 }
     };
   }
 
@@ -157,12 +158,12 @@
     s.phase = p; s.phaseT = 0;
     var scn = s.scn;
     if (p === 'eclipse') {
-      s.sunlit = false; s.eclBrown = false;
+      s.sunlit = false; s.eclBrown = false; s.eclProtected = false;
       ev(s, 'crit', 'crisis1', 'PLANETARY ECLIPSE: entering ' + scn.shadowName + '. Solar generation 0 W.');
     } else if (p === 'nom1') {
       s.sunlit = true;
       if (s.b && s.b.instruments) { s.b.instruments.forEach(function (i) { s.inst[i.id] = true; }); }
-      var e = s.results.eclipse = { brown: s.eclBrown, minBatt: s.minBattEcl, ok: !s.eclBrown };
+      var e = s.results.eclipse = { brown: s.eclBrown, minBatt: s.minBattEcl, ok: !s.eclBrown && !s.brown };
       ev(s, e.ok ? 'good' : 'warn', 'eclipseEnd', e.ok ? 'Back in sunlight! Solar generation restored \u2014 instruments back online.' : 'Back in sunlight, but the eclipse caused a brownout.');
     } else if (p === 'seu') {
       var word = Math.floor(Math.random() * 0xFFFF), bit = Math.floor(Math.random() * 16);
@@ -184,11 +185,39 @@
     }
   }
 
+  /* Clean SEU exit: log recovery and enter nom2 immediately. Safe to call repeatedly (no-op unless phase==='seu' and computerOK). */
+  function finishSeu(s) {
+    if (s.phase !== 'seu' || !s.computerOK) return false;
+    var dtRec = s.seu ? s.t - s.seu.t0 : 0;
+    s.rebooting = false; s.rebootT = 0;
+    s.results.seu = { ok: true, time: dtRec, fails: s.seuFails };
+    if (dtRec > 6) penalty(s, 'seuslow', clamp((dtRec - 6) * 1.5, 1, 10), 'Flight computer was down for ' + dtRec.toFixed(1) + ' s.');
+    ev(s, 'good', 'seuEnd', 'FLIGHT COMPUTER RECOVERED in ' + dtRec.toFixed(1) + ' s. Telemetry nominal.');
+    startPhase(s, 'nom2');
+    return true;
+  }
+
+  function finishEclipse(s) {
+    if (s.phase !== 'eclipse') return false;
+    var remaining;
+    Object.keys(s.inst).forEach(function (k) { s.inst[k] = false; });
+    if (s.battMax > 0) s.eclProtected = true;
+
+    // Simulate the rest of the blackout immediately so its battery effects still count.
+    while (s.phase === 'eclipse') {
+      remaining = DUR.eclipse - s.phaseT;
+      if (remaining <= 0) break;
+      step(s, Math.min(0.1, remaining + 1e-7));
+    }
+    return true;
+  }
+
   function instOnList(s) { return s.b.instruments.filter(function (i) { return s.inst[i.id]; }); }
 
   function act(s, a) {
     if (s.done) return false;
     var msg;
+    if (a.type === 'eclipseFix') return finishEclipse(s);
     if (a.type === 'backup') {
       if (s.brown) { return reject(s, 'POWER BUS COLLAPSED: backup bus cannot be routed.'); }
       s.backup = !!a.on; return true;
@@ -205,6 +234,24 @@
       ev(s, 'info', 'reboot', 'Rebooting flight computer on backup bus\u2026');
       return true;
     }
+    if (a.type === 'purge' || a.type === 'ramPurge') {
+      if (s.phase !== 'seu' || s.computerOK) return false;
+      if (s.phaseT >= s.scn.seuWindow) return reject(s, 'WINDOW EXPIRED: the watchdog is taking over.');
+      if (!s.backup) {
+        s.seuFails++; ev(s, 'warn', 'rebootFail', 'RAM PURGE REJECTED: primary power bus is latched up. Route BACKUP POWER first.');
+        return false;
+      }
+      s.computerOK = true; s.backup = false; s.rebooting = false; s.rebootT = 0;
+      ev(s, 'info', 'purge', 'Manual RAM purge complete: corrupted memory word cleared.');
+      return finishSeu(s);
+    }
+    if (a.type === 'repairCode') {
+      if (s.phase !== 'seu' || s.computerOK) return false;
+      if (s.phaseT >= s.scn.seuWindow) return reject(s, 'WINDOW EXPIRED: the watchdog is taking over.');
+      s.computerOK = true; s.backup = false; s.rebooting = false; s.rebootT = 0;
+      ev(s, 'info', 'purge', 'Memory repair code accepted: corrupted word cleared.');
+      return finishSeu(s);
+    }
     if (!s.computerOK) return reject(s, 'FLIGHT COMPUTER FAULT: commands not accepted. Recover the computer first.');
     if (a.type === 'inst') {
       if (s.brown && a.on) return reject(s, 'POWER BUS COLLAPSED: cannot power instruments yet.');
@@ -212,7 +259,9 @@
     }
     if (a.type === 'allInst') {
       if (s.brown && a.on) return reject(s, 'POWER BUS COLLAPSED: cannot power instruments yet.');
-      Object.keys(s.inst).forEach(function (k) { s.inst[k] = !!a.on; }); return true;
+      Object.keys(s.inst).forEach(function (k) { s.inst[k] = !!a.on; });
+      if (s.phase === 'eclipse' && !a.on && s.battMax > 0) s.eclProtected = true;
+      return true;
     }
     if (a.type === 'throttle') { s.throttle = a.v; return true; }
     if (a.type === 'boost') {
@@ -233,11 +282,7 @@
     else if (s.phase === 'nom1' && s.phaseT >= DUR.nom1) startPhase(s, 'seu');
     else if (s.phase === 'seu') {
       if (s.computerOK) {
-        var dtRec = s.t - s.seu.t0;
-        s.results.seu = { ok: true, time: dtRec, fails: s.seuFails };
-        if (dtRec > 6) penalty(s, 'seuslow', clamp((dtRec - 6) * 1.5, 1, 10), 'Flight computer was down for ' + dtRec.toFixed(1) + ' s.');
-        ev(s, 'good', 'seuEnd', 'FLIGHT COMPUTER RECOVERED in ' + dtRec.toFixed(1) + ' s. Telemetry nominal.');
-        startPhase(s, 'nom2');
+        finishSeu(s);
       } else if (s.phaseT >= scn.seuWindow && !s.rebooting) {
         s.results.seu = { ok: false, time: scn.seuWindow, fails: s.seuFails };
         s.computerOK = true; s.backup = false;
@@ -269,11 +314,13 @@
         }
       }
     }
+    // SEU recovery (reboot completion, purge, or any other path that restored the computer) transitions on this exact tick
+    if (s.phase === 'seu' && s.computerOK) finishSeu(s);
 
     // ---- power
     var instLoad = 0;
     b.instruments.forEach(function (i) { if (s.inst[i.id]) instLoad += i.draw; });
-    var load = b.scn.bus.load + instLoad + b.telDraw * (s.boost ? 1.8 : 1) + (s.phase === 'eclipse' ? scn.heater : 0) + (s.backup ? scn.backupLoad : 0) + surge;
+    var load = b.scn.bus.load + instLoad + b.telDraw * (s.boost ? 1.8 : 1) + (s.phase === 'eclipse' ? scn.heater : scn.heater * (scn.thermalSun || 0)) + (s.backup ? scn.backupLoad : 0) + surge;
     var gen = (s.sunlit ? b.genSolar : 0) + b.genRTG;
     s.gen = gen; s.load = load; s.net = gen - load;
     var dWh = s.net * hps * dt * (s.net > 0 ? 0.92 : 1);
@@ -283,13 +330,16 @@
 
     if (!s.brown && s.net < 0 && s.batt <= 0.0001) {
       s.brown = true; s.brownRec = 0; s.brownCount++;
-      if (s.phase === 'eclipse') s.eclBrown = true;
+      if (s.phase === 'eclipse') {
+        var anyInstOn = Object.keys(s.inst).some(function (k) { return s.inst[k]; });
+        s.eclBrown = !s.eclProtected || anyInstOn || s.battMax <= 0;
+      }
       Object.keys(s.inst).forEach(function (k) { s.inst[k] = false; });
       s.boost = false;
       if (s.brownCount <= 3) penalty(s, 'brownout', 20, 'Brownout #' + s.brownCount + ': the battery ran flat and the craft dropped into safe mode.');
       ev(s, 'crit', 'brownout', 'BROWNOUT: battery empty. Safe mode: science instruments powered OFF.');
     } else if (s.brown) {
-      var floorLoad = scn.bus.load + b.telDraw + (s.phase === 'eclipse' ? scn.heater : 0);
+      var floorLoad = scn.bus.load + b.telDraw + (s.phase === 'eclipse' ? scn.heater : scn.heater * (scn.thermalSun || 0));
       if (gen - floorLoad < 0) {
         s.collapseT += dt;
         if (s.collapseT > 1.5) { s.collapseT = 0; penalty(s, 'collapse', 3, 'Power bus collapsed: even the bare craft needs more than the generators can supply.'); }
@@ -313,7 +363,10 @@
     var wasOv = s.ov;
     s.ov = s.buffer >= s.bufCap - 1e-6 && dataIn > out;
     if (s.ov) { s.ovSec += dt; if (!wasOv) { s.ovEvents++; ev(s, 'crit', 'overflow', 'BUFFER OVERFLOW: memory full, new science data is being lost.'); } }
-    if (s.phase === 'dsn') s.dsnPeak = Math.max(s.dsnPeak, s.buffer / s.bufCap);
+    if (s.phase === 'dsn') {
+      s.dsnPeak = Math.max(s.dsnPeak, s.buffer / s.bufCap);
+      if (s.buffer / s.bufCap <= 0.35 && !s.results.dsn) s.results.dsn = { fill: s.buffer / s.bufCap, cleared: true, overflow: s.ovSec > 0, ovSec: s.ovSec };
+    }
     if (s.ov || !s.computerOK) sciRate = 0;
     s.sci += sciRate * dt;
     if (s.throttle < 1 && s.computerOK) s.throttleSec += dt;
@@ -323,17 +376,24 @@
   /* ---------- Scoring ---------- */
   function score(s) {
     var b = s.b, scn = s.scn;
-    var yieldPct = clamp(100 * s.sci / (scn.benchmark * Math.max(1, s.elapsed)), 0, 100);
+    var hasInst = b.instruments && b.instruments.length > 0;
+    var targetSci = (b.sci || 0) * Math.max(1, s.elapsed);
+    var opReturn = (hasInst && targetSci > 0) ? clamp(s.sci / targetSci, 0, 1) : 0;
+    var payloadBreadth = hasInst ? clamp((b.sci || 0) / (scn.benchmark * 0.75), 0, 1) : 0;
+    var yieldPct = hasInst ? clamp(100 * (0.65 * opReturn + 0.35 * payloadBreadth), 0, 100) : 0;
+
     var spentFrac = b.cost / scn.budget, massFrac = b.mass / scn.massCap;
-    var costEff = clamp((yieldPct / 100) / Math.max(0.25, spentFrac), 0, 1);
-    var massEff = clamp((yieldPct / 100) / Math.max(0.25, massFrac), 0, 1);
-    var powerEff = b.gen >= b.load ? clamp((b.load / Math.max(1, b.gen)) / 0.75, 0, 1) : 0.5 * (b.gen / Math.max(1, b.load));
-    var eff = 100 * clamp(0.55 * costEff + 0.25 * massEff + 0.2 * powerEff, 0, 1);
+    var costScore = spentFrac <= 1.0 ? (spentFrac <= 0.85 ? 1.0 : clamp(1.0 - (spentFrac - 0.85) * 1.5, 0.7, 1.0)) : clamp(1.0 - (spentFrac - 1.0) * 3.0, 0, 0.5);
+    var massScore = massFrac <= 1.0 ? (massFrac <= 0.85 ? 1.0 : clamp(1.0 - (massFrac - 0.85) * 1.5, 0.7, 1.0)) : clamp(1.0 - (massFrac - 1.0) * 3.0, 0, 0.5);
+    var powerScore = b.net >= 0 ? 1.0 : clamp((b.gen || 0) / Math.max(1, b.load), 0, 0.6);
+    var eff = 100 * clamp(0.40 * costScore + 0.35 * massScore + 0.25 * powerScore, 0, 1);
+
     var pts = 0; s.pen.forEach(function (p) { pts += p.pts; });
     var surv = clamp(100 - pts, 0, 100);
-    var overall = 0.45 * yieldPct + 0.25 * eff + 0.30 * surv;
-    var rank = overall >= 82 ? 'S' : overall >= 68 ? 'A' : overall >= 52 ? 'B' : 'C';
-    var loss = surv <= 30 || yieldPct < 8;
+
+    var overall = clamp(0.40 * yieldPct + 0.30 * eff + 0.30 * surv, 0, 100);
+    var rank = overall >= 82 && yieldPct >= 85 && surv >= 80 ? 'S' : overall >= 68 ? 'A' : overall >= 52 ? 'B' : 'C';
+    var loss = surv <= 30 || (hasInst && yieldPct < 15) || !hasInst;
     if (loss) rank = 'Mission Loss';
     return { yieldPct: yieldPct, eff: eff, surv: surv, overall: overall, rank: rank, loss: loss,
       spent: b.cost, massFrac: massFrac, spentFrac: spentFrac };
@@ -408,6 +468,7 @@
     // Science & budget
     var names = b.instruments.map(function (i) { return i.name; });
     if (names.length) add(sc.yieldPct >= 70 ? 'good' : 'info', 'Your payload (' + names.join(', ') + ') delivered ' + Math.round(sc.yieldPct) + '% of the target science yield.');
+    else add('bad', 'No science instruments were installed on the spacecraft, so no scientific measurements could be collected.');
     add(b.budgetLeft > 0.15 * scn.budget ? 'good' : 'info', 'You spent $' + r1(b.cost) + 'M of $' + scn.budget + 'M and flew ' + r1(b.mass) + ' kg of a ' + scn.massCap + ' kg cap.');
     return out;
   }
