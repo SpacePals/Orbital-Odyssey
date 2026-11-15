@@ -485,7 +485,7 @@
       },
       eclipseHit: false,
       // Antenna tuner state
-      tuneVal: 35, sliderLock: false, tuneAwarded: false,
+      tuneVal: 35, sliderLock: false, tuneAwarded: false, tuneAlerting: false,
       // Orbital drift / thermal alert (Advanced mission only)
       hasDrift: eu, drift: 0, driftAlert: false, driftHold: 0, driftPen: 0,
       anomalies: [
@@ -674,15 +674,17 @@
       if (k === 'crisis1' || k === 'crisis2' || k === 'crisis3') {
         var idx = +k.slice(-1) - 1;
         S.alarmStart(); OP.flashT = 0.6; $('opsFlash').className = 'flash on'; setTimeout(function () { $('opsFlash').className = 'flash'; }, 500);
+        if (k === 'crisis3') OP.tuneAlerting = true;
         showBanner('crit', 'EMERGENCY ' + (idx + 1) + ' / 3 \u2022 ' + CRISIS[idx].title,
           idx === 0 ? 'Hit the green mark to save battery until sunrise.' :
           idx === 1 ? 'Computer frozen. Repeat the 5-number repair code.' :
-          'Slide the knob into the green band and hold it there to send data.', 0);
+            'Slide into green to solve the radio lock and silence the beeps. Move outside and the alert returns.', 0);
       } else if (k === 'eclipseEnd' || k === 'seuEnd' || k === 'dsnEnd') {
         if (k === 'eclipseEnd' && sim && sim.b && sim.b.instruments) {
           sim.b.instruments.forEach(function (i) { sim.inst[i.id] = true; });
         }
         S.alarmStop();
+        if (k === 'dsnEnd' && OP) OP.tuneAlerting = false;
         S.good && (ev.level === 'good' ? S.good() : S.warn());
         showBanner(ev.level === 'good' ? 'good' : 'warn', ev.level === 'good' ? 'HAZARD SURVIVED' : 'HAZARD ENDED WITH LOSS', ev.msg, 3.2);
       } else if (k === 'brownout') { S.error(); OP.flashT = 0.4; }
@@ -750,14 +752,14 @@
       key = 'dsn'; // fully static structure: dynamic bits are updated in place (keeps the slider alive while dragging)
       var tuner = '<div class="antenna-tuner-box">' +
         '<div class="tuner-head mono"><span>SIGNAL STRENGTH</span><b id="tuneStatus" style="color:var(--cyan)"></b></div>' +
-        '<div class="tuner-slider-wrap"><div style="position:relative">' +
-          '<div id="tuneZone" class="signal-zone" style="position:absolute;left:' + zone.left + '%;width:' + (zone.right - zone.left) + '%;top:0;bottom:0;pointer-events:none"></div>' +
-          '<input type="range" id="antennaSlider" min="0" max="100" value="' + OP.tuneVal + '" class="antenna-slider" aria-label="Drag the radio slider into the green lock zone and hold it there" aria-valuetext="Move right into green">' +
+        '<div class="tuner-slider-wrap"><div class="tuner-range-wrap">' +
+          '<div class="tuner-slider-track"><div id="tuneZone" class="signal-zone" style="left:' + zone.left + '%;width:' + (zone.right - zone.left) + '%;pointer-events:none"></div></div>' +
+          '<input type="range" id="antennaSlider" min="0" max="100" value="' + OP.tuneVal + '" class="antenna-slider" aria-label="Move the radio slider into the green band. The alert stops inside and returns outside." aria-valuetext="Move right into green">' +
         '</div></div></div>';
       h = '<div class="crisis-head"><span class="badge-alert">3</span> <b>RADIO WINDOW CLOSING</b></div>' +
         '<p><b id="dsnCountdown">' + Math.max(0, rem).toFixed(0) + '</b>s left &bull; Data waiting to send: <b id="dsnFill">' + Math.round(fill * 100) + '%</b></p>' +
         '<div class="fix-guidance-card" id="dsnGuide">' +
-          '<div class="mini-game-copy dsn-guide-copy"><b id="dsnGuideHead">MOVE RIGHT INTO GREEN</b><span id="dsnExplain">Drag the cyan knob into the 68-86% green band. Hold it there until data remaining is 35% or less.</span></div>' +
+          '<div class="mini-game-copy dsn-guide-copy"><b id="dsnGuideHead">MOVE RIGHT INTO GREEN</b><span id="dsnExplain">The alert beeps outside green. Move the cyan knob into the 68-86% band to silence it.</span></div>' +
           tuner +
           '<div class="tuner-scale"><span>WEAK</span><b>LOCK ZONE 68-86%</b><span>STRONG</span></div>' +
           '<div class="crisis-actions-wrap dsn-wrap">' +
@@ -803,11 +805,17 @@
       var fill = s.buffer / s.bufCap, rem = Math.max(0, E.DUR.dsn - s.phaseT), cleared = fill <= 0.35;
       setText('dsnCountdown', rem.toFixed(0));
       setText('dsnFill', Math.round(fill * 100) + '%');
-      var gd = $('dsnGuide'); if (gd) setCls(gd, 'fix-guidance-card' + (cleared ? ' ok-state' : ''));
+      var gd = $('dsnGuide'); if (gd) setCls(gd, 'fix-guidance-card' + (s.boost ? ' ok-state' : ''));
       var zone = tuneZone(s.phaseT);
-      var tuneHint = s.boost ? 'SIGNAL LOCKED' : OP.tuneVal < zone.left ? 'MOVE RIGHT INTO GREEN' : OP.tuneVal > zone.right ? 'MOVE LEFT INTO GREEN' : 'HOLD IN GREEN';
-      setText('dsnGuideHead', cleared ? 'DATA SENT TO EARTH' : tuneHint);
-      setText('dsnExplain', cleared ? 'Data sent. Buffer is at 35% or less.' : 'Drag the cyan knob into the 68-86% green band and hold until data remaining is 35% or less.');
+      var inZone = OP.tuneVal >= zone.left && OP.tuneVal <= zone.right;
+      var locked = s.boost && inZone;
+      var tuneHint = locked ? 'SIGNAL LOCKED' : !inZone ? OP.tuneVal < zone.left ? 'MOVE RIGHT INTO GREEN' : 'MOVE LEFT INTO GREEN' : 'NO SIGNAL POWER';
+      setText('dsnGuideHead', locked ? 'EMERGENCY SOLVED — SIGNAL LOCKED' : tuneHint);
+      setText('dsnExplain', locked
+        ? 'The alert is silent while you stay in green. Move outside and it beeps again; data keeps sending.'
+        : inZone
+          ? 'The knob is in green, but the transmitter has no power. Restore power to lock the signal.'
+          : 'The alert beeps outside green. Move the cyan knob into the 68-86% band to silence it.');
       var sl = $('antennaSlider');
       if (sl) sl.setAttribute('aria-valuetext', tuneHint);
       var paused = s.throttle === 0, pb = $('dsnPauseBtn');
@@ -816,9 +824,9 @@
       setText('dsnPauseLbl', paused ? 'RESUME DATA' : 'PAUSE NEW DATA');
       var ts = $('tuneStatus');
       if (ts) {
-        var txt = s.boost ? 'LOCKED' : OP.tuneVal < zone.left ? 'MOVE RIGHT' : OP.tuneVal > zone.right ? 'MOVE LEFT' : 'HOLD';
+        var txt = locked ? 'LOCKED' : !inZone ? OP.tuneVal < zone.left ? 'MOVE RIGHT' : 'MOVE LEFT' : 'NO POWER';
         if (ts.textContent !== txt) ts.textContent = txt;
-        ts.style.color = s.boost ? 'var(--green)' : 'var(--cyan)';
+        ts.style.color = locked ? 'var(--green)' : 'var(--cyan)';
       }
       if (sl && root.document.activeElement !== sl && +sl.value !== OP.tuneVal) sl.value = OP.tuneVal;
     }
@@ -1106,6 +1114,12 @@
   function tuneZone() {
     return { left: TUNE_LO, right: TUNE_HI };
   }
+  function setTuneAlerting(alerting) {
+    if (!OP || OP.tuneAlerting === alerting) return;
+    OP.tuneAlerting = alerting;
+    if (alerting) S.alarmStart();
+    else S.alarmStop();
+  }
   function syncTuneZone() {
     if (!OP || OP.sim.phase !== 'dsn') return;
     var zone = tuneZone(OP.sim.phaseT), inZone = OP.tuneVal >= zone.left && OP.tuneVal <= zone.right;
@@ -1115,9 +1129,9 @@
         OP.tuneAwarded = true;
         OP.score = (OP.score || 0) + 150;
         OP.miniGames.radio.locks++;
-        if (S.combo) S.combo(2);
       }
     }
+    setTuneAlerting(!(inZone && OP.sim.boost));
   }
   /  * Antenna tuner: boost engages while the thumb remains inside the green zone. */
   function tuneInput(val) {

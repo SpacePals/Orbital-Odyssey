@@ -323,15 +323,24 @@ vm.runInContext(`
   sim.phase = 'dsn';
   sim.phaseT = 1.0;
   sim.boost = false;
+  var radioAudio = { starts: 0, stops: 0, beeps: 0, combos: 0 };
+  OO_SFX.alarmStart = () => { radioAudio.starts++; };
+  OO_SFX.alarmStop = () => { radioAudio.stops++; };
+  OO_SFX.beep = () => { radioAudio.beeps++; };
+  OO_SFX.combo = () => { radioAudio.combos++; };
   OO.loops.ops(0.1);
   var radioGuide = document.getElementById('crisisBox').innerHTML;
   if (!radioGuide.includes('left:68%;width:18%') ||
       !radioGuide.includes('LOCK ZONE 68-86%') ||
-      !radioGuide.includes('data remaining is 35% or less')) {
+      !radioGuide.includes('The alert beeps outside green') ||
+      !radioGuide.includes('tuner-slider-track')) {
     throw new Error('FAIL: Radio slider instructions or visible lock zone do not match the tuning logic!');
   }
   op.tuneAwarded = false;
+  op.tuneAlerting = true;
   op.tuneVal = 83.5;
+  var alarmStartsBeforeLock = radioAudio.starts;
+  var alarmStopsBeforeLock = radioAudio.stops;
   var toastCountBeforeRadio = window.toastCalls.length;
   var sliderEl = document.getElementById('antennaSlider');
   sliderEl.value = '83.5';
@@ -343,6 +352,26 @@ vm.runInContext(`
   if (window.toastCalls.length !== toastCountBeforeRadio) {
     throw new Error('FAIL: Radio lock should update in place without covering the slider!');
   }
+  if (radioAudio.stops !== alarmStopsBeforeLock + 1 || radioAudio.beeps || radioAudio.combos) {
+    throw new Error('FAIL: Locking the signal should silence the alert without playing a success beep.');
+  }
+  sliderEl.value = '50';
+  panel.trigger('input', { target: sliderEl });
+  if (sim.boost || radioAudio.starts !== alarmStartsBeforeLock + 1) {
+    throw new Error('FAIL: Moving outside the green band should resume the alert.');
+  }
+  sliderEl.value = '75';
+  panel.trigger('input', { target: sliderEl });
+  sliderEl.value = '50';
+  panel.trigger('input', { target: sliderEl });
+  if (sim.boost || radioAudio.starts !== alarmStartsBeforeLock + 2 ||
+      op.miniGames.radio.locks !== 1 || radioAudio.beeps || radioAudio.combos) {
+    throw new Error('FAIL: The alert must resume every time the slider leaves green without replaying the lock reward.');
+  }
+  OO_SFX.alarmStart = () => {};
+  OO_SFX.alarmStop = () => {};
+  OO_SFX.beep = () => {};
+  OO_SFX.combo = () => {};
 
   // 4. Sunrise automatically wakes the sensors.
   sim.phase = 'nom1';
