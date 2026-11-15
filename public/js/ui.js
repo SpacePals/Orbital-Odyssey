@@ -7,6 +7,14 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmt(v) { return E.fmt(v); }
   function setCls(el, cls) { if (el && el.className !== cls) el.className = cls; }
+  function rocketIconSvg(className) {
+    var classes = className ? className + ' rocket-icon' : 'rocket-icon';
+    return '<svg class="' + classes + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M12 2.5c-2.7 2.2-4.1 5.2-4.1 9.4v4l4.1 2.2 4.1-2.2v-4c0-4.2-1.4-7.2-4.1-9.4Z"/>' +
+      '<circle cx="12" cy="9" r="1.5"/>' +
+      '<path d="m7.9 12.5-3 2.5v4.1l3.5-1.8m7.7-4.8 3 2.5v4.1l-3.5-1.8M10 19.2 12 22l2-2.8"/>' +
+      '</svg>';
+  }
 
   var simpleMode = true;
   try { simpleMode = localStorage.getItem('oo_simple_mode') !== '0'; } catch (e) { /* ignore */ }
@@ -172,7 +180,7 @@
     var sunSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
     var radSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
     var dishSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>';
-    var rkSvg = '<svg class="icon-svg brief-icon" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>';
+    var rkSvg = rocketIconSvg('icon-svg brief-icon');
     $('briefing').innerHTML =
       '<div class="brief-overview brief-simple">' +
         '<div class="brief-mission-box">' +
@@ -204,7 +212,7 @@
     sci: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(90 12 12)"/></svg>',
     pow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
     tel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/></svg>',
-    lau: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>'
+    lau: rocketIconSvg('')
   };
 
   function buildHUD() {
@@ -314,7 +322,7 @@
     var sp = b.gen <= 0 ? ['miss', 'No power source'] : (!b.eclipseCovered ? ['miss', 'Needs Battery for night'] : (powerOk ? ['ok', 'Net +' + fmt(b.net) + ' W Charging'] : ['bad', 'Net ' + fmt(b.net) + ' W Deficit']));
     var gs = !b.antenna ? ['miss', 'No antenna selected'] : (b.data > b.bw ? ['bad', 'Data overflow risk'] : ['ok', fmt(b.bw) + ' kbps Radio Link']);
     var us = !b.instruments.length ? ['miss', 'Install an instrument'] : ['ok', b.instruments.length + ' instrument' + (b.instruments.length > 1 ? 's' : '') + ' \u2022 ' + b.sci + ' pts'];
-    var svgRk = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>';
+    var svgRk = rocketIconSvg('btn-svg');
     var svgPw = '<svg class="btn-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
     var svgRa = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M12 12h.01"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>';
     var svgSc = '<svg class="btn-svg" viewBox="0 0 24 24"><path d="M10 2v7.31L4.67 19.15A2 2 0 0 0 6.4 22h11.2a2 2 0 0 0 1.73-2.85L14 9.31V2h-4z"/><path d="M8.5 2h7M7 16h10"/></svg>';
@@ -503,11 +511,11 @@
     },
     {
       num: 5,
-      icon: '<svg class="icon-svg tut-icon-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg>',
+      icon: rocketIconSvg('icon-svg tut-icon-svg'),
       title: 'Step 4: Choose Your Rocket Booster',
       callout: { sel: '#tabs .tab[data-tab="launch"]', label: 'ROCKET tab: pick a booster' },
       desc: 'Your spacecraft needs a powerful ride to space! Switch to the <b>Rocket</b> tab and select a booster strong enough to lift your craft\'s weight. If your ship is too heavy for the rocket, it will run out of fuel and crash back to Earth!',
-      visual: '<div class="tut-tip-box"><svg class="icon-svg tut-tag-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> <b>Rocket Physics:</b> Heavier ships require more speed. Keep an eye on the weight limit!</div>',
+      visual: '<div class="tut-tip-box">' + rocketIconSvg('icon-svg tut-tag-svg') + ' <b>Rocket Physics:</b> Heavier ships require more speed. Keep an eye on the weight limit!</div>',
       highlightTab: 'launch'
     },
     {

@@ -208,6 +208,11 @@ p {
   stroke-width: 2;
 }
 
+.btn-svg.rocket-icon,
+.icon-svg.rocket-icon {
+  stroke-width: 2.2;
+}
+
 .icon-svg.tut-tag-svg {
   width: 14px;
   height: 14px;
