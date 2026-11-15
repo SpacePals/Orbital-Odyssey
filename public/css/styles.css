@@ -548,7 +548,7 @@ body[data-screen="menu"] {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  width: min(400px, calc(100% - 40px));
+  width: min(300px, calc(100% - 40px));
   min-height: 64px;
   padding: 8px 14px;
   border: 1px solid rgba(15, 23, 42, .14);
