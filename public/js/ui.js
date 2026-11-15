@@ -10,9 +10,9 @@
   function rocketIconSvg(className) {
     var classes = className ? className + ' rocket-icon' : 'rocket-icon';
     return '<svg class="' + classes + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '<path d="M12 2.5c-2.7 2.2-4.1 5.2-4.1 9.4v4l4.1 2.2 4.1-2.2v-4c0-4.2-1.4-7.2-4.1-9.4Z"/>' +
-      '<circle cx="12" cy="9" r="1.5"/>' +
-      '<path d="m7.9 12.5-3 2.5v4.1l3.5-1.8m7.7-4.8 3 2.5v4.1l-3.5-1.8M10 19.2 12 22l2-2.8"/>' +
+      '<path d="M12 2c3.6 2.1 5.5 5.4 5.5 9.7v3.1l2.2 2.4-4.2-.6L12 20l-3.5-3.4-4.2.6 2.2-2.4v-3.1C6.5 7.4 8.4 4.1 12 2Z"/>' +
+      '<circle cx="12" cy="9" r="1.6"/>' +
+      '<path d="M8.2 14.3 5.1 17.4M15.8 14.3l3.1 3.1M10.2 19.3 12 22l1.8-2.7"/>' +
       '</svg>';
   }
 
@@ -40,6 +40,11 @@
   OO.show = function (name) {
     qa('.screen').forEach(function (s) { s.classList.toggle('active', s.id === 'screen-' + name); });
     OO.screen = name;
+    if (S.setMusicScene) {
+      S.setMusicScene(name === 'debrief' ? 'silent' : (name === 'launch' || name === 'ops' ? 'flight' : 'default'));
+    } else if (S.setStageMusic) {
+      S.setStageMusic(name === 'launch' || name === 'ops');
+    }
     var p = PHASE[name] || ['ORBITAL ODYSSEY', [1]];
     $('phaseLabel').textContent = p[0];
     var cur = p[1][0];

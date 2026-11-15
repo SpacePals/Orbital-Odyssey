@@ -151,23 +151,15 @@ S.setMusicVolume(1);
 assert(createdAudios[0].volume < 0.5, 'Background music should stay subdued at full slider settings');
 console.log('✔ Independent Master, Music, and SFX volume controls verified');
 
-// Test Music Playlist & Navigation
+// Test Music Playlist
 console.log('Testing music playlist...');
 let track = S.getMusicTrack();
 assert.strictEqual(track.index, 0);
 assert.strictEqual(track.title, 'Into the Beyond');
-assert.strictEqual(track.total, 1);
-
-S.nextMusic();
-track = S.getMusicTrack();
-assert.strictEqual(track.index, 0);
-assert.strictEqual(track.title, 'Into the Beyond');
-
-S.prevMusic();
-track = S.getMusicTrack();
-assert.strictEqual(track.index, 0);
-assert.strictEqual(track.total, 1);
-console.log('✔ Single-track background music verified');
+assert.strictEqual(track.total, 2);
+assert.strictEqual(typeof S.setStageMusic, 'function');
+S.setStageMusic(true);
+console.log('✔ Stage music playlist and transition trigger verified');
 
 // Test Mute
 console.log('Testing mute / unmute...');

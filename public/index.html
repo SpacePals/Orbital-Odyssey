@@ -97,7 +97,7 @@
 
         <div class="cta-row">
           <button class="btn primary big pulse-btn" id="btnStartLevel">
-            <svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> ENTER WORKSHOP &rarr; <small>Start Designing Your Ship</small>
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c3.6 2.1 5.5 5.4 5.5 9.7v3.1l2.2 2.4-4.2-.6L12 20l-3.5-3.4-4.2.6 2.2-2.4v-3.1C6.5 7.4 8.4 4.1 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M8.2 14.3 5.1 17.4M15.8 14.3l3.1 3.1M10.2 19.3 12 22l1.8-2.7"/></svg> ENTER WORKSHOP &rarr; <small>Start Designing Your Ship</small>
           </button>
         </div>
       </div>
@@ -157,7 +157,7 @@
           <div id="bom" class="bom"></div>
 
           <div class="launch-box">
-            <button class="btn launch" id="btnLaunch"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> LAUNCH MISSION</button>
+            <button class="btn launch" id="btnLaunch"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c3.6 2.1 5.5 5.4 5.5 9.7v3.1l2.2 2.4-4.2-.6L12 20l-3.5-3.4-4.2.6 2.2-2.4v-3.1C6.5 7.4 8.4 4.1 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M8.2 14.3 5.1 17.4M15.8 14.3l3.1 3.1M10.2 19.3 12 22l1.8-2.7"/></svg> LAUNCH MISSION</button>
             <button class="btn ghost small" id="btnBackToLevel">&larr; Back to Mission Select</button>
           </div>
         </aside>
@@ -367,16 +367,38 @@
         <button class="tut-close-btn" id="btnOpsTutSkip" aria-label="Close Guide">&times; Close</button>
       </div>
       <div class="tut-body ops-guide-body">
-        <div class="tut-icon-wrap"><svg class="btn-svg" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg></div>
-        <h2 id="opsTutTitle">Three quick challenges</h2>
-        <div class="ops-quick-rules">
-          <p><b>Darkness:</b> hit the green mark to save battery.</p>
-          <p><b>Computer glitch:</b> repeat the 5-number code.</p>
-          <p><b>Radio:</b> move the knob into green and hold it there to send data.</p>
+        <div class="tut-icon-wrap"><svg class="btn-svg ops-guide-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c3.6 2.1 5.5 5.4 5.5 9.7v3.1l2.2 2.4-4.2-.6L12 20l-3.5-3.4-4.2.6 2.2-2.4v-3.1C6.5 7.4 8.4 4.1 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M8.2 14.3 5.1 17.4M15.8 14.3l3.1 3.1M10.2 19.3 12 22l1.8-2.7"/></svg></div>
+        <h2 id="opsTutTitle">Mission operations</h2>
+        <p class="ops-guide-intro">Keep the spacecraft alive, restore its systems, and bring the science home.</p>
+        <div class="ops-guide-grid">
+          <article class="ops-guide-card">
+            <span class="guide-num">01</span>
+            <div class="guide-content">
+              <div class="guide-card-head"><b>ECLIPSE WATCH</b><span class="guide-badge-alert">BATTERY</span></div>
+              <p>Time the sunlight window to protect your probe's power reserves.</p>
+              <div class="guide-steps-flow"><span class="guide-step-pill"><b>SCAN</b> Find the green window</span><span class="guide-step-arrow">&rarr;</span><span class="guide-step-pill action"><b>ACT</b> Trigger the wake-up</span></div>
+            </div>
+          </article>
+          <article class="ops-guide-card">
+            <span class="guide-num">02</span>
+            <div class="guide-content">
+              <div class="guide-card-head"><b>AVIONICS RECOVERY</b><span class="guide-badge-alert">SYSTEM</span></div>
+              <p>Rebuild the computer's five-digit command sequence before the fault spreads.</p>
+              <div class="guide-steps-flow"><span class="guide-step-pill"><b>READ</b> Memorize the code</span><span class="guide-step-arrow">&rarr;</span><span class="guide-step-pill action"><b>ENTER</b> Restore the link</span></div>
+            </div>
+          </article>
+          <article class="ops-guide-card">
+            <span class="guide-num">03</span>
+            <div class="guide-content">
+              <div class="guide-card-head"><b>DSN SIGNAL LOCK</b><span class="guide-badge-alert">COMMS</span></div>
+              <p>Align the antenna with the green band and hold the signal steady to transmit data.</p>
+              <div class="guide-steps-flow"><span class="guide-step-pill"><b>TUNE</b> Center the signal</span><span class="guide-step-arrow">&rarr;</span><span class="guide-step-pill action"><b>HOLD</b> Send telemetry</span></div>
+            </div>
+          </article>
         </div>
       </div>
       <div class="tut-foot">
-        <button class="btn primary big" id="btnOpsTutStart"><svg class="btn-svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-4.05 11a22.7 22.7 0 0 1-3.95 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"/><circle cx="15" cy="9" r="1.5"/></svg> Start Flight &rarr;</button>
+        <button class="btn primary big" id="btnOpsTutStart"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c3.6 2.1 5.5 5.4 5.5 9.7v3.1l2.2 2.4-4.2-.6L12 20l-3.5-3.4-4.2.6 2.2-2.4v-3.1C6.5 7.4 8.4 4.1 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M8.2 14.3 5.1 17.4M15.8 14.3l3.1 3.1M10.2 19.3 12 22l1.8-2.7"/></svg> Start Flight &rarr;</button>
       </div>
     </div>
   </div>

@@ -11,6 +11,7 @@
   var masterVol = 0.7;
   var musicVol = 0.6;
   var sfxVol = 0.8;
+  var MUSIC_GAIN = 0.2;
 
   var rumbleState = null;
   var rumbleScale = 0.8;
@@ -44,13 +45,18 @@
   } catch (e) { /* ignore localStorage errors */ }
 
   /* -----------------------------------------------------------------------
-   *  DEFAULT BACKGROUND MUSIC
+   *  BACKGROUND MUSIC
    * ----------------------------------------------------------------------- */
   var PLAYLIST = [
     {
       id: 'beyond',
       title: 'Into the Beyond',
       sources: ['sfx/music_beyond.m4a', 'sfx/music_beyond.mov', 'sfx/into_the_beyond.mov', 'sfx/IntotheBeyond [LzvTz-GZNMI].mov']
+    },
+    {
+      id: 'vintage',
+      title: 'Vintage Orbit',
+      sources: ['sfx/music_vintage.m4a', 'sfx/music_vintage.mov', 'sfx/Vintage.mov']
     }
   ];
 
@@ -58,6 +64,8 @@
   var bgAudio = null;
   var musicPlaying = false;
   var musicListeners = [];
+  var musicFadeTimer = null;
+  var musicTransitionId = 0;
 
   function initMusicPlayer() {
     if (bgAudio || typeof root.Audio !== 'function') return;
@@ -90,10 +98,35 @@
       if (muted || masterVol <= 0.001 || musicVol <= 0.001) {
         bgAudio.volume = 0;
       } else {
-        var eff = masterVol * musicVol * 0.28;
+        var eff = masterVol * musicVol * MUSIC_GAIN;
         bgAudio.volume = Math.max(0, Math.min(1, eff));
       }
     } catch (e) { /* ignore */ }
+  }
+
+  function getMusicVolumeTarget() {
+    if (muted || masterVol <= 0.001 || musicVol <= 0.001) return 0;
+    return Math.max(0, Math.min(1, masterVol * musicVol * MUSIC_GAIN));
+  }
+
+  function fadeMusicTo(target, done) {
+    if (!bgAudio) {
+      if (done) done();
+      return;
+    }
+    clearInterval(musicFadeTimer);
+    var start = bgAudio.volume;
+    var started = Date.now();
+    var duration = 360;
+    musicFadeTimer = setInterval(function () {
+      var progress = Math.min(1, (Date.now() - started) / duration);
+      bgAudio.volume = start + (target - start) * progress;
+      if (progress >= 1) {
+        clearInterval(musicFadeTimer);
+        musicFadeTimer = null;
+        if (done) done();
+      }
+    }, 30);
   }
 
   function updateRecordedSfxVolume() {
@@ -204,6 +237,9 @@
     trk._srcIdx = trk._srcIdx || 0;
     var src = trk.sources[trk._srcIdx] || trk.sources[0];
 
+    musicTransitionId++;
+    clearInterval(musicFadeTimer);
+    musicFadeTimer = null;
     updateMusicVolume();
     if (bgAudio.src.indexOf(src) === -1) {
       bgAudio.src = src;
@@ -230,8 +266,55 @@
     }
   }
 
-  function nextMusic() { playMusic(0); }
-  function prevMusic() { playMusic(0); }
+  function transitionMusic(idx) {
+    initMusicPlayer();
+    if (!bgAudio) return;
+    var nextIdx = ((idx % PLAYLIST.length) + PLAYLIST.length) % PLAYLIST.length;
+    if (nextIdx === curTrackIdx && bgAudio.src) {
+      playMusic(nextIdx);
+      return;
+    }
+
+    var transitionId = ++musicTransitionId;
+    var switchTrack = function () {
+      if (transitionId !== musicTransitionId) return;
+      curTrackIdx = nextIdx;
+      var trk = PLAYLIST[curTrackIdx];
+      trk._srcIdx = 0;
+      bgAudio.pause();
+      bgAudio.src = trk.sources[0];
+      bgAudio.volume = 0;
+      playMusic(curTrackIdx);
+      if (musicPlaying) {
+        bgAudio.volume = 0;
+        fadeMusicTo(getMusicVolumeTarget);
+      }
+    };
+
+    if (bgAudio.src && !muted && bgAudio.volume > 0.001) {
+      fadeMusicTo(0, switchTrack);
+    } else {
+      switchTrack();
+    }
+  }
+
+  function silenceMusic() {
+    initMusicPlayer();
+    if (!bgAudio) return;
+    var transitionId = ++musicTransitionId;
+    var stop = function () {
+      if (transitionId !== musicTransitionId) return;
+      bgAudio.pause();
+      bgAudio.volume = 0;
+      musicPlaying = false;
+      notifyMusicChange();
+    };
+    if (bgAudio.src && !muted && bgAudio.volume > 0.001) fadeMusicTo(0, stop);
+    else stop();
+  }
+
+  function nextMusic() { transitionMusic(curTrackIdx + 1); }
+  function prevMusic() { transitionMusic(curTrackIdx - 1); }
 
   function pauseMusic() {
     if (bgAudio) {
@@ -488,6 +571,15 @@
     // Music track controls
     getMusicTrack: getMusicTrack,
     playMusic: playMusic,
+    setStageMusic: function (stageFlight) {
+      init();
+      transitionMusic(stageFlight ? 1 : 0);
+    },
+    setMusicScene: function (scene) {
+      init();
+      if (scene === 'silent') silenceMusic();
+      else transitionMusic(scene === 'flight' ? 1 : 0);
+    },
     nextMusic: nextMusic,
     prevMusic: prevMusic,
     pauseMusic: pauseMusic,

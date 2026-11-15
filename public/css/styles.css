@@ -3265,26 +3265,6 @@ body[data-screen="menu"] {
   box-shadow: 0 0 10px rgba(34, 211, 238, .6);
 }
 
-.ops-quick-rules {
-  display: grid;
-  gap: 8px;
-  width: min(460px, 100%);
-  margin: 0 auto;
-}
-
-.ops-quick-rules p {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(14, 27, 51, .65);
-  color: #d1dced;
-}
-
-.ops-quick-rules b {
-  color: var(--cyan);
-}
-
 .ops-guide-trigger-btn {
   position: absolute;
   top: 10px;
@@ -4614,6 +4594,17 @@ body[data-screen="menu"] {
 .ops-guide-body h2 {
   font-size: 20px;
   margin-bottom: 6px;
+}
+
+.ops-guide-rocket {
+  width: 36px;
+  height: 36px;
+  color: var(--orange);
+}
+
+.ops-guide-intro {
+  color: var(--dim);
+  margin-bottom: 12px;
 }
 
 .ops-guide-body p {
