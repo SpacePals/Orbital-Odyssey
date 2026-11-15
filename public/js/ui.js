@@ -111,8 +111,8 @@
     // 2. Background Music Volume & Track info
     var musicSlider = $('volMusicSlider');
     var musicVal = $('volMusicVal');
-    if (musicSlider) musicSlider.value = muted ? 0 : musicPct;
-    if (musicVal) musicVal.textContent = muted ? '0%' : musicPct + '%';
+    if (musicSlider) musicSlider.value = musicPct;
+    if (musicVal) musicVal.textContent = musicPct + '%';
 
     var trackSpan = $('musicTrackTitle');
     if (trackSpan && S.getMusicTrack) {
@@ -123,8 +123,8 @@
     // 3. Sound Effects (SFX) Volume
     var sfxSlider = $('volSfxSlider');
     var sfxVal = $('volSfxVal');
-    if (sfxSlider) sfxSlider.value = muted ? 0 : sfxPct;
-    if (sfxVal) sfxVal.textContent = muted ? '0%' : sfxPct + '%';
+    if (sfxSlider) sfxSlider.value = sfxPct;
+    if (sfxVal) sfxVal.textContent = sfxPct + '%';
   }
 
   /* ---------------- menu & level art ---------------- */

@@ -26,15 +26,21 @@
     rumble: 'sfx/rumble.mp3'
   };
 
+  function clampVolume(value, fallback) {
+    var volume = Number(value);
+    if (!isFinite(volume)) return fallback;
+    return Math.max(0, Math.min(1, volume));
+  }
+
   // Stored volumes & mute state
   try {
     muted = localStorage.getItem('oo_muted') === '1';
     var sm = localStorage.getItem('oo_vol_master') || localStorage.getItem('oo_volume');
-    if (sm !== null) masterVol = Math.max(0, Math.min(1, parseFloat(sm)));
+    if (sm !== null) masterVol = clampVolume(sm, masterVol);
     var smu = localStorage.getItem('oo_vol_music');
-    if (smu !== null) musicVol = Math.max(0, Math.min(1, parseFloat(smu)));
+    if (smu !== null) musicVol = clampVolume(smu, musicVol);
     var ssfx = localStorage.getItem('oo_vol_sfx');
-    if (ssfx !== null) sfxVol = Math.max(0, Math.min(1, parseFloat(ssfx)));
+    if (ssfx !== null) sfxVol = clampVolume(ssfx, sfxVol);
   } catch (e) { /* ignore localStorage errors */ }
 
   /* -----------------------------------------------------------------------
@@ -84,7 +90,7 @@
       if (muted || masterVol <= 0.001 || musicVol <= 0.001) {
         bgAudio.volume = 0;
       } else {
-        var eff = masterVol * musicVol * 0.36;
+        var eff = masterVol * musicVol * 0.28;
         bgAudio.volume = Math.max(0, Math.min(1, eff));
       }
     } catch (e) { /* ignore */ }
@@ -416,7 +422,7 @@
 
     setMasterVolume: function (v) {
       init();
-      masterVol = Math.max(0, Math.min(1, v));
+      masterVol = clampVolume(v, masterVol);
       muted = masterVol <= 0.001;
       try {
         localStorage.setItem('oo_vol_master', masterVol.toFixed(2));
@@ -452,7 +458,7 @@
 
     setMusicVolume: function (v) {
       init();
-      musicVol = Math.max(0, Math.min(1, v));
+      musicVol = clampVolume(v, musicVol);
       try {
         localStorage.setItem('oo_vol_music', musicVol.toFixed(2));
       } catch (e) { /* ignore */ }
@@ -470,7 +476,7 @@
 
     setSfxVolume: function (v) {
       init();
-      sfxVol = Math.max(0, Math.min(1, v));
+      sfxVol = clampVolume(v, sfxVol);
       try {
         localStorage.setItem('oo_vol_sfx', sfxVol.toFixed(2));
       } catch (e) { /* ignore */ }
