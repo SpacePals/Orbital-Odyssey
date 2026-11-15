@@ -879,7 +879,7 @@
     $('chkSpin').addEventListener('change', function (e) { OO.spin = e.target.checked; S.click(); });
 
     var st = $('stage'), lastX = 0;
-    st.addEventListener('pointerdown', function (e) { OO.dragging = true; lastX = e.clientX; try { st.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } });
+    st.addEventListener('pointerdown', function (e) { e.preventDefault(); OO.dragging = true; lastX = e.clientX; try { st.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } });
     st.addEventListener('pointermove', function (e) { if (!OO.dragging) return; OO.yaw += (e.clientX - lastX) * 0.012; lastX = e.clientX; OO.spinPause = 2.5; });
     st.addEventListener('pointerup', function () { OO.dragging = false; });
     st.addEventListener('pointercancel', function () { OO.dragging = false; });
