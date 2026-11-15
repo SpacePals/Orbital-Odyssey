@@ -71,7 +71,12 @@
   }
 
   FLOW.startLaunch = function () {
-    var b = OO.b, fails = E.launchCheck(b), type = b.booster.id, lm = b.launch, scn = b.scn;
+    var b = OO.b, fails = E.launchCheck(b);
+    if (fails.some(function (f) { return f.id === 'budget'; })) {
+      OO.toast('OVER BUDGET: reduce your design cost before proceeding to launch.', 'bad');
+      return;
+    }
+    var type = b.booster.id, lm = b.launch, scn = b.scn;
     var scrub = fails.some(function (f) { return f.id === 'budget' || f.id === 'masscap'; });
     var anyDv = fails.some(function (f) { return f.id === 'dv'; });
     var frac = lm.canReach ? clamp(lm.dv / lm.req, 0, 1) : 0.3;
@@ -1227,9 +1232,7 @@
         '</div>' +
         '<div class="pilot-stats-sub mono">' +
           '<span>📸 Recon Discoveries: <b>' + photos.length + ' / ' + totalTargets + '</b></span>' +
-          '<span>⚡ Trajectory Staging: <b>CONFIRMED</b></span>' +
         '</div>' +
-        '<div class="pilot-rank-note">Pilot title is separate; it uses flight points.</div>' +
       '</div>' +
       '</section>';
 

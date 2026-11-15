@@ -169,6 +169,26 @@ vm.runInContext(`
 const flowCode = fs.readFileSync('public/js/flow.js', 'utf8');
 vm.runInContext(flowCode, ctx);
 
+console.log('=== TEST 0: Over-Budget Build Cannot Enter Launch Stage ===');
+vm.runInContext(`
+  var originalCost = OO.b.cost;
+  var originalBudgetLeft = OO.b.budgetLeft;
+  var toastCountBeforeBudgetCheck = window.toastCalls.length;
+  OO.b.cost = OO.b.scn.budget + 1;
+  OO.b.budgetLeft = -1;
+  OO_FLOW.startLaunch();
+  if (OO_FLOW._getLK() !== null) {
+    throw new Error('FAIL: Over-budget build entered the launch stage!');
+  }
+  if (window.toastCalls.length !== toastCountBeforeBudgetCheck + 1 ||
+      !window.toastCalls[window.toastCalls.length - 1].msg.includes('OVER BUDGET')) {
+    throw new Error('FAIL: Over-budget launch block did not explain why progression was blocked!');
+  }
+  OO.b.cost = originalCost;
+  OO.b.budgetLeft = originalBudgetLeft;
+  console.log('PASS: Over-budget build stayed in the workshop and showed a warning.');
+`, ctx);
+
 console.log('=== TEST 1: Stage 4 Hands-off Steering (Doing Nothing Must Fail) ===');
 vm.runInContext(`
   OO_FLOW.startLaunch();
@@ -402,6 +422,7 @@ vm.runInContext(`
   console.log('Debrief has clear lessons:', report.includes('HAZARD DEBRIEF') && report.includes('Radiation can flip a memory bit.'));
   if (!report.includes('HAZARD DEBRIEF') || !report.includes('Radiation can flip a memory bit.') || !report.includes('Move the knob into the green band') ||
       !report.includes('class="score-grid"') || !report.includes('class="db-card discoveries"') ||
+      report.includes('Pilot title is separate; it uses flight points') || report.includes('Trajectory Staging') ||
       report.includes('Grade = science 40%') || report.includes('Design. Test. Learn. Improve.') || report.includes('NASA Space Apps 2026')) {
     throw new Error('FAIL: Debrief is missing simple hazard results or next steps!');
   }
